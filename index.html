@@ -1,0 +1,43 @@
+<html>
+  <head>
+	<title>TR3200 Emulator</title>
+    <script src="util.js"></script>
+    <script src="vm.js"></script>
+    <script src="init.js"></script>
+    <script src="main.js"></script>
+    <script src="parser.js"></script>
+    <script src="assembler.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+    <style type="text/css">
+    </style>
+    <script type="text/javascript">
+    </script>
+  </head>
+  <body onload="init()">
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <br>
+    <br>
+    <textarea id="input"></textarea>
+    <br>
+    <input type="button" value="write" onclick="writeCanvas(input.value)">
+    <input type="button" value="parse and execute" onclick="parse(input.value)"> as 
+    <select id="format">
+      <option value="hex">Hexadecimal</option>
+      <option value="bin1">Binary (little-endian)</option>
+      <option value="bin2">Binary (big-endian)</option>
+    </select>
+    <input type="button" value="assemble" onclick="assemble(input.value)">
+    <input type="button" value="undo" onclick="undo()">
+  </body>
+</html>
+
+<!--
+      function submit(input) {
+        input = input.split("\n");
+        for (var i = 0; i < viewY && i < input.length; i++) {
+          for (var j = 0; j < viewX && j < input[i].length; j++) {
+            drawChar(input[i][j], j, i);
+          }
+        }
+      }
+-->
