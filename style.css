@@ -1,0 +1,21 @@
+body {
+  text-align: center;
+  background-color: #080;
+  color: #8f8;
+}
+
+div {
+  color: #0f0;
+}
+
+canvas {
+  border: 1px solid #000;
+  background-color: #000;
+  color: #fff;
+}
+
+textarea {
+  width: 640px;
+  max-width: 640px;
+  height: 100px;
+}
