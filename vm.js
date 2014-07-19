@@ -1,35 +1,37 @@
-var ram = Array(128*1024); // 128 KB
+var mem_size_ = 1179647; // 0x000000 to 0x11ffff
+var memory = Array(mem_size_); // all the memory. all of it
+/*
+Important addresses:
+0x000000-0x01ffff: initial ram
+0x000000-0x0fffff: maximum ram
+0x100000-0x107fff: rom
+0x110000-0x112000: devices (max 32 devices)
+0x11e040: RNG
+0x11e050: clock speed 
+0x11ff00 to 0x11ffff: registers
+
+*/
 function getRam(address) {
-  if (address < 0x000000 || address > 128*1024)
-    error("tried to fetch ram address at " + hexToStr(address));
+  if (address < 0x000000 || address > mem_size_)
+    error("tried to fetch ram at out-of-bounds address " + hexToStr(address));
   return ram[address];
 }
 function setRam(address, value) {
-  if (address < 0x000000 || address > 128*1024)
-    error("tried to set ram address at " + hexToStr(address));
+  if (address < 0x000000 || address > mem_size_)
+    error("tried to set ram at out-of-bounds address " + hexToStr(address));
+  if (address >= 0x100000 || address <= 0x107fff)
+    error("tried to fetch address in rom chip: " + hexToStr(address));
   if (typeof value != "number" && isNaN(parseInt(value)))
     error("tried to set the non-numeric value " + value
         + " to address " + hexToStr(address));
   ram[address] = parseInt(value);
 }
-var colors = [
-  "#000000", // Black
-  "#EFDCB2", // Light Blue
-  "#F2A231", // Mid Blue
-  "#FF0000", // Blue
-  "#32261B", // Dark Blue
-  "#27CEA3", // Light Green
-  "#1A8944", // Green
-  "#4E482F", // Swamp Green
-  "#6BE2F7", // Yellow
-  "#3189EB", // Copper
-  "#2264A4", // Brown
-  "#2B3C49", // Dark Brown
-  "#8B6FE0", // Pink
-  "#3326BE", // Red
-  "#9D9D9D", // Gray
-  "#FFFFFF" // White
-  ];
+function getRegister(index) {
+  return getRam(0x11FF00 + index);
+}
+function setRegister(address, value) {
+  setRam(0x11FF00 + index, value);
+}
 var registers; // TODO put registers in the ram too
 function boot() {
   registers = [ // at addresses 0x11FF00 to 0x11FFFF
@@ -51,7 +53,6 @@ function boot() {
   0];          // %ia interrupt address
 }
 
-
 var asleep = false;
 function sleep() { // temporary test function
   if (!asleep) {
@@ -60,7 +61,6 @@ function sleep() { // temporary test function
   }
 }
 
-// note: should probably put all stuff, e.g. registers, into ram before implementing instructions
 function execute(opcode, params, m, rn, rs, rd) {
     // only SLEEP (0x00) implemented for testing purposes
     switch (opcode) {
@@ -69,14 +69,17 @@ function execute(opcode, params, m, rn, rs, rd) {
       break;
     case 0x40: // MOV
       if (m) { // sets a register
+        setRegister(rd, rn);
+      } else {
+        setRam(rd, rn);
       }
       break;
     default:
       console.log("unimplemented opcode: 0x" + opcode.toString(16));
     }
 }
-
-function run(rom) { // instruction is in little-endian
+// todo: rom should be stored in the memory, not passed as an argument
+function run(rom) { // instructions are in little-endian
   for (var i = 0; i < rom.length; i++) { // todo i should be some register that points to the rom
     var instruction = rom[i];
     var opcode = instruction & 0xff;
@@ -132,7 +135,7 @@ function run(rom) { // instruction is in little-endian
     // now to actually execute the code
     execute(opcode, parameters, m, rn, rs, rd);
   }
-  console.log("done with rom");
+  console.log("done with execution");
   sleep();
 }
 

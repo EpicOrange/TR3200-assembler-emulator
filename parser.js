@@ -1,4 +1,3 @@
-
 function parseAsHex(input, code) {
   input = input.replace("0x", ""); // also remove all the 0x from 0xffffffff
   if (!input.match(/^[\s0-9a-f]+$/gi)) // make sure only hex
@@ -18,6 +17,7 @@ function parseAsHex(input, code) {
     code[i] = parseInt(str[i], 16);
   }
 }
+
 function parseAsBin(input, code, bigendian) {
   if (!input.match(/^[\s01]+$/g)) // make sure input is only binary
     return error("input is not in binary");

@@ -30,4 +30,22 @@ function undo() {
   undoStorage = temp;
 }
 
+var colors = [
+  "#000000", // Black
+  "#EFDCB2", // Light Blue
+  "#F2A231", // Mid Blue
+  "#FF0000", // Blue
+  "#32261B", // Dark Blue
+  "#27CEA3", // Light Green
+  "#1A8944", // Green
+  "#4E482F", // Swamp Green
+  "#6BE2F7", // Yellow
+  "#3189EB", // Copper
+  "#2264A4", // Brown
+  "#2B3C49", // Dark Brown
+  "#8B6FE0", // Pink
+  "#3326BE", // Red
+  "#9D9D9D", // Gray
+  "#FFFFFF" // White
+  ];
 

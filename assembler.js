@@ -82,7 +82,8 @@ var regNames = {
   "%flags": 15,
   "%r15": 15
 };
-function assemble(input) { // TODO: handle NOP, SLEEP, and RFI as instructions by themselves
+// TODO: make addition work
+function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructions by themselves
   undoStorage = input; // store in undo
   var lines = input.trim().split("\n");
   var instructions = [];
