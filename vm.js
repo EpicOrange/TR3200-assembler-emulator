@@ -11,12 +11,12 @@ Important addresses:
 0x11ff00 to 0x11ffff: registers
 
 */
-function getRam(address) {
+function getMemory(address) {
   if (address < 0x000000 || address > mem_size_)
     error("tried to fetch ram at out-of-bounds address " + hexToStr(address));
   return ram[address];
 }
-function setRam(address, value) {
+function setMemory(address, value) {
   if (address < 0x000000 || address > mem_size_)
     error("tried to set ram at out-of-bounds address " + hexToStr(address));
   if (address >= 0x100000 || address <= 0x107fff)
@@ -27,10 +27,10 @@ function setRam(address, value) {
   ram[address] = parseInt(value);
 }
 function getRegister(index) {
-  return getRam(0x11FF00 + index);
+  return getMemory(0x11FF00 + index);
 }
 function setRegister(address, value) {
-  setRam(0x11FF00 + index, value);
+  setMemory(0x11FF00 + index, value);
 }
 var registers; // TODO put registers in the ram too
 function boot() {
@@ -62,7 +62,7 @@ function sleep() { // temporary test function
 }
 
 function execute(opcode, params, m, rn, rs, rd) {
-    // only SLEEP (0x00) implemented for testing purposes
+    // only SLEEP (0x00) and MOV (0x40) implemented for testing purposes
     switch (opcode) {
     case 0x0: // SLEEP
       sleep();
@@ -71,15 +71,15 @@ function execute(opcode, params, m, rn, rs, rd) {
       if (m) { // sets a register
         setRegister(rd, rn);
       } else {
-        setRam(rd, rn);
+        setMemory(rd, rn);
       }
       break;
     default:
       console.log("unimplemented opcode: 0x" + opcode.toString(16));
     }
 }
-// todo: rom should be stored in the memory, not passed as an argument
-function run(rom) { // instructions are in little-endian
+// reminder: instructions are in little-endian
+function run() {
   for (var i = 0; i < rom.length; i++) { // todo i should be some register that points to the rom
     var instruction = rom[i];
     var opcode = instruction & 0xff;

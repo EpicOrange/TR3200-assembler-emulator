@@ -57,6 +57,10 @@ function parse(input) {
   } else {
     parseAsBin(input, code, document.getElementById("format").selectedIndex == 2);
   }
-  // now to execute the code
-  run(code);
+  // store rom in memory
+  code.forEach(function(val, i) {
+    memory[0x100000 + i] = val;
+  });
+  // now to start the vm
+  run();
 }
