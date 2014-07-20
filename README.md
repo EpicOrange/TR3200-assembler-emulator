@@ -1,7 +1,7 @@
 TR3200-assembler-emulator
 =========================
-**Doesn't fully work yet, sorry!**
-(You can try it out though)
+**Doesn't fully work yet, sorry!**  
+(You can [try it out](http://epicorange.github.io/TR3200-assembler-emulator) though)
 
 TR3200 Documentation
 --------------------
