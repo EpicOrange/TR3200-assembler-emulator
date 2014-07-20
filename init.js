@@ -14,8 +14,8 @@ function init() {
   canvas.fillStyle = "white";
   fore = colors[15];
   back = colors[0];
-  input.value = "0x20148084";
-  //input.value = "ADD 0x14 %r11 %r0";
+  input.value = "0x02148040"; // MOV 0x14 %r2
+  //input.value = "ADD 0x14 %r11 %r0"; // 0x20148084
   //input.value = "1111 1111 0000 0000 0000 0000 0000 0000";
   boot();
 }

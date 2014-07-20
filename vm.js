@@ -13,7 +13,7 @@ Important addresses:
 */
 function getMemory(address, dword) {
   if (address < 0x000000 || address > mem_size_)
-    error("tried to get ram at out-of-bounds address " + hexToStr(address));
+    error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
 
   if (!dword) {
     if (typeof memory[address] == "undefined")
@@ -25,32 +25,32 @@ function getMemory(address, dword) {
         || typeof memory[address+2] == "undefined"
         || typeof memory[address+3] == "undefined")
       return error("tried to get undefined ram dword at " + address);
-    var value = memory[address] << 6*4;
-    value = value | (memory[address+1] << 4*4);
-    value = value | (memory[address+2] << 2*4);
-    value = value | (memory[address+3] << 0*4);
-    return value;
+    var value = memory[address];
+    value = value | (memory[address+1] << 2*4);
+    value = value | (memory[address+2] << 4*4);
+    value = value | (memory[address+3] << 6*4);
+    return value; // this returns a little-endian dword
   }
 }
 // todo get and set rng and clock speed
 function setMemory(address, value, dword, setRom) {
   if (address < 0x000000 || address > mem_size_)
-    error("tried to set ram at out-of-bounds address " + hexToStr(address));
+    return error("tried to set ram at out-of-bounds address " + hexToStr(address, 6));
   if (!setRom && address >= 0x100000 && address <= 0x107fff)
-    error("tried to set address in rom: " + hexToStr(address));
+    return error("tried to set address in rom: " + hexToStr(address, 6));
   if (typeof value != "number" && isNaN(parseInt(value)))
-    error("tried to set the non-numeric value " + value
-        + " to address " + hexToStr(address));
+    return error("tried to set the non-numeric value " + value
+        + " to address " + hexToStr(address, 6));
   if (typeof value == "string")
     value = parseInt(value);
 
   if (!dword) {
     memory[address] = value;
   } else {
-    memory[address+0] = (value & 0xff000000) >> 6*4;
-    memory[address+1] = (value & 0x00ff0000) >> 4*4;
-    memory[address+2] = (value & 0x0000ff00) >> 2*4;
-    memory[address+3] = (value & 0x000000ff) >> 0*4;
+    memory[address+0] = (value & 0x000000ff) >> 0*4;
+    memory[address+1] = (value & 0x0000ff00) >> 2*4;
+    memory[address+2] = (value & 0x00ff0000) >> 4*4;
+    memory[address+3] = (value & 0xff000000) >> 6*4;
   }
 }
 function getRegister(register) {
@@ -77,16 +77,17 @@ function setRegister(register, value) {
   }
   setMemory(0x11ff00 + index, value, true);
 }
-var pc;
+var pc; // still not sure where this is stored in memory, so it's here
 function boot() {
   // clear registers
   for (var i = 0x11ff00; i < 0x11ff00 + (4*16); i++) {
-    setMemory(i, 0);
+    setMemory(i, 0, true);
   }
-  pc = 0x100000;
+  pc = 0x100000; // start of rom
+  asleep = false;
 }
 
-var asleep = false;
+var asleep = false; // temporary test thingy
 function sleep() { // temporary test function
   if (!asleep) {
     asleep = true;
@@ -101,11 +102,7 @@ function execute(opcode, params, m, rn, rs, rd) { // TODO make this not dependen
       sleep();
       break;
     case 0x40: // MOV
-      if (m) { // sets a register
-        setRegister(rd, rn);
-      } else {
-        setMemory(rd, rn);
-      }
+      setRegister(rd, (m ? rn : getRegister(rn)));
       break;
     default:
       console.log("unimplemented opcode: 0x" + opcode.toString(16));
@@ -122,7 +119,7 @@ function run() {
     var opcode = instruction & 0xff;
     var parameters = numArgs(opcode); // number of parameters
     var m = instruction & 0x00008000;
-    var rn, rs, rd;
+    var rn = undefined, rs = undefined, rd = undefined;
 
     // this entire switch is for extracting rn, rs, and rd from the instruction.
     // there's probably a more compact and less readable way to do this
@@ -150,7 +147,7 @@ function run() {
           rn = getMemory(pc, true);
         } else {
           rn = ((instruction & 0xf0000000) >> 7*4)
-             | ((instruction & 0x00ff0000) >> 2*4)
+             | ((instruction & 0x00ff0000) >> 3*4)
              | ((instruction & 0x00007f00) << 1*4);
         }
       } else {
@@ -178,13 +175,13 @@ function run() {
     // debug code
     var debugText = "PC: " + hexToStr(pc, 6) + "; read instruction " + hexToStr(instruction) + "\n\t";
     debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
+    debugText += "m: " + (m ? "true; " : "false; ");
     if (typeof rn != "undefined")
-      debugText += "rn: " + regNames2[rn] + "; ";
+      debugText += "rn: " + (regNames2[rn] || hexToStr(rn)) + "; ";
     if (typeof rs != "undefined")
       debugText += "rs: " + regNames2[rs] + "; ";
     if (typeof rd != "undefined")
       debugText += "rd: " + regNames2[rd] + "; ";
-    debugText += "m: " + (m ? "true" : "false");
     console.log(debugText);
 
     // now to actually execute the code
