@@ -66,7 +66,4 @@ function parse(input) {
   }
   // put a sleep instruction in case the rom already had stuff in it
   setMemory(0x100000 + instructions.length*4, 0x00000000, true, true);
-  
-  // now to start the vm
-  run();
 }
