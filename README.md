@@ -1,7 +1,9 @@
-TR3200-assembler-emulator
+TR3200 Assembler and VM
 =========================
-**Doesn't fully work yet, sorry!**  
-(You can [try it out](http://epicorange.github.io/TR3200-assembler-emulator) though)
+This is an assembler and VM for the TR3200 cpu. ([specs](https://github.com/trillek-team/trillek-computer/blob/master/cpu/TR3200.md))  
+*The current version only implements SLEEP and MOV, and still needs a lot of work in general.*
+
+You can try it out [here](http://epicorange.github.io/TR3200-assembler-emulator).
 
 TR3200 Documentation
 --------------------
