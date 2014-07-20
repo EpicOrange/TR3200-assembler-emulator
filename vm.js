@@ -1,4 +1,4 @@
-var mem_size_ = 1179647; // 0x000000 to 0x11ffff
+var mem_size_ = 1179647; // bytes in 0x000000 to 0x11ffff
 var memory = Array(mem_size_); // all the memory. all of it
 /*
 Important addresses:
@@ -6,51 +6,84 @@ Important addresses:
 0x000000-0x0fffff: maximum ram
 0x100000-0x107fff: rom
 0x110000-0x112000: devices (max 32 devices)
-0x11e040: RNG
-0x11e050: clock speed 
-0x11ff00 to 0x11ffff: registers
+0x11e040:          RNG
+0x11e050:          clock speed 
+0x11ff00-0x11ffff: registers
 
 */
-function getMemory(address) {
+function getMemory(address, dword) {
   if (address < 0x000000 || address > mem_size_)
-    error("tried to fetch ram at out-of-bounds address " + hexToStr(address));
-  return ram[address];
+    error("tried to get ram at out-of-bounds address " + hexToStr(address));
+
+  if (!dword) {
+    if (typeof memory[address] == "undefined")
+      return error("tried to get undefined ram byte at " + address);
+    return memory[address];
+  } else {
+    if (typeof memory[address] == "undefined"
+        || typeof memory[address+1] == "undefined"
+        || typeof memory[address+2] == "undefined"
+        || typeof memory[address+3] == "undefined")
+      return error("tried to get undefined ram dword at " + address);
+    var value = memory[address] << 6*4;
+    value = value | (memory[address+1] << 4*4);
+    value = value | (memory[address+2] << 2*4);
+    value = value | (memory[address+3] << 0*4);
+    return value;
+  }
 }
-function setMemory(address, value) {
+// todo get and set rng and clock speed
+function setMemory(address, value, dword, setRom) {
   if (address < 0x000000 || address > mem_size_)
     error("tried to set ram at out-of-bounds address " + hexToStr(address));
-  if (address >= 0x100000 || address <= 0x107fff)
-    error("tried to fetch address in rom chip: " + hexToStr(address));
+  if (!setRom && address >= 0x100000 && address <= 0x107fff)
+    error("tried to set address in rom: " + hexToStr(address));
   if (typeof value != "number" && isNaN(parseInt(value)))
     error("tried to set the non-numeric value " + value
         + " to address " + hexToStr(address));
-  ram[address] = parseInt(value);
-}
-function getRegister(index) {
-  return getMemory(0x11FF00 + index);
-}
-function setRegister(address, value) {
-  setMemory(0x11FF00 + index, value);
-}
-var registers; // TODO put registers in the ram too
-function boot() {
-  registers = [ // at addresses 0x11FF00 to 0x11FFFF
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // %r0-%r10 (general-purpose)
-  0,           // %y (multiplication/quotient)
-  0,           // %bp (base pointer);
-  0,           // %sp (stack pointer)
-  0,           // %flags
-               //   31 -> abcd eeee fghh hhhh hhhh hhhh hhhh hhhh <- 0
-               //   a: CF (carry flag)
-               //   b: OF (overflow flag)
-               //   c: DE (division error flag)
-               //   d: IF (interrupt flag)
-               //   e: reserved
-               //   f: EI (enable interrupt)
-               //   g: ESS (enable single-step mode)
-               //   h: reserved
+  if (typeof value == "string")
+    value = parseInt(value);
 
-  0];          // %ia interrupt address
+  if (!dword) {
+    memory[address] = value;
+  } else {
+    memory[address+0] = (value & 0xff000000) >> 6*4;
+    memory[address+1] = (value & 0x00ff0000) >> 4*4;
+    memory[address+2] = (value & 0x0000ff00) >> 2*4;
+    memory[address+3] = (value & 0x000000ff) >> 0*4;
+  }
+}
+function getRegister(register) {
+  var index;
+  if (typeof register == "number")
+    index = register;
+  else {
+    if (!(register in regNames)) {
+      return error("Tried to get invalid register: " + register);
+    }
+    index = regNames[register];
+  }
+  return getMemory(0x11ff00 + index, true);
+}
+function setRegister(register, value) {
+  var index;
+  if (typeof register == "number")
+    index = register;
+  else {
+    if (!(register in regNames)) {
+      return error("Tried to get invalid register: " + register);
+    }
+    index = regNames[register];
+  }
+  setMemory(0x11ff00 + index, value, true);
+}
+var pc;
+function boot() {
+  // clear registers
+  for (var i = 0x11ff00; i < 0x11ff00 + (4*16); i++) {
+    setMemory(i, 0);
+  }
+  pc = 0x100000;
 }
 
 var asleep = false;
@@ -61,7 +94,7 @@ function sleep() { // temporary test function
   }
 }
 
-function execute(opcode, params, m, rn, rs, rd) {
+function execute(opcode, params, m, rn, rs, rd) { // TODO make this not dependent on 'ram' variable
     // only SLEEP (0x00) and MOV (0x40) implemented for testing purposes
     switch (opcode) {
     case 0x0: // SLEEP
@@ -80,19 +113,27 @@ function execute(opcode, params, m, rn, rs, rd) {
 }
 // reminder: instructions are in little-endian
 function run() {
-  for (var i = 0; i < rom.length; i++) { // todo i should be some register that points to the rom
-    var instruction = rom[i];
+  boot();
+  // TODO: left off trying to get this thing to iterate using %pc
+  do {
+    if (asleep) // test code to stop parsing rom when a sleep instruction is found
+      return;
+    var instruction = getMemory(pc, true);
     var opcode = instruction & 0xff;
     var parameters = numArgs(opcode); // number of parameters
     var m = instruction & 0x00008000;
     var rn, rs, rd;
+
+    // this entire switch is for extracting rn, rs, and rd from the instruction.
+    // there's probably a more compact and less readable way to do this
     switch (parameters) {
     case 3:
       rs = opcode & 0xf0000000;
       rd = opcode & 0x0f000000;
       if (m) {
         if ((instruction & 0x00ffff00) == 0x00004000) {
-          rn = rom[++i];
+          pc += 4;
+          rn = getMemory(pc, true);
         } else {
           rn = ((instruction & 0x00ff0000) >> 4*4)
              | ((instruction & 0x00007f00) >> 0*4);
@@ -105,7 +146,8 @@ function run() {
       rd = opcode & 0x0f000000;
       if (m) {
         if ((instruction & 0xf0ffff00) == 0x00004000) {
-          rn = rom[++i];
+          pc += 4;
+          rn = getMemory(pc, true);
         } else {
           rn = ((instruction & 0xf0000000) >> 7*4)
              | ((instruction & 0x00ff0000) >> 2*4)
@@ -118,7 +160,8 @@ function run() {
     case 1:
       if (m) {
         if ((instruction & 0xffffff00) == 0x00004000) {
-          rn = rom[++i];
+          pc += 4;
+          rn = getMemory(pc, true);
         } else {
           rn = ((instruction & 0xff000000) >> 6*4)
              | ((instruction & 0x00ff0000) >> 2*4)
@@ -132,13 +175,43 @@ function run() {
       break;
     }
 
+    // debug code
+    var debugText = "PC: " + hexToStr(pc, 6) + "; read instruction " + hexToStr(instruction) + "\n\t";
+    debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
+    if (typeof rn != "undefined")
+      debugText += "rn: " + regNames2[rn] + "; ";
+    if (typeof rs != "undefined")
+      debugText += "rs: " + regNames2[rs] + "; ";
+    if (typeof rd != "undefined")
+      debugText += "rd: " + regNames2[rd] + "; ";
+    debugText += "m: " + (m ? "true" : "false");
+    console.log(debugText);
+
     // now to actually execute the code
     execute(opcode, parameters, m, rn, rs, rd);
-  }
-  console.log("done with execution");
+  } while (pc += 4);
+  console.log("done with rom execution");
   sleep();
 }
 
+var regNames2 = { // this is for debug. remove sometime
+  0: "%r0",
+  1: "%r1",
+  2: "%r2",
+  3: "%r3",
+  4: "%r4",
+  5: "%r5",
+  6: "%r6",
+  7: "%r7",
+  8: "%r8",
+  9: "%r9",
+  10: "%r10",
+  11: "%y",
+  12: "%bp",
+  13: "%sp",
+  14: "%ia",
+  15: "%flags"
+};
 
 
 // below are just notes n stuff
@@ -239,5 +312,22 @@ STOREW 0x97 Saves a word            ram[Rs + Rn] = Rd                3
 STOREB 0x98 Saves a byte            ram[Rs + Rn] = Rd                3
 
 
+  registers = [ // at addresses 0x11FF00 to 0x11FFFF
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // %r0-%r10 (general-purpose)
+  0,           // %y (multiplication/quotient)
+  0,           // %bp (base pointer);
+  0,           // %sp (stack pointer)
+  0,           // %flags
+               //   31 -> abcd eeee fghh hhhh hhhh hhhh hhhh hhhh <- 0
+               //   a: CF (carry flag)
+               //   b: OF (overflow flag)
+               //   c: DE (division error flag)
+               //   d: IF (interrupt flag)
+               //   e: reserved
+               //   f: EI (enable interrupt)
+               //   g: ESS (enable single-step mode)
+               //   h: reserved
+
+  0];          // %ia interrupt address
 
 */

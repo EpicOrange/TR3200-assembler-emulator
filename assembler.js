@@ -82,14 +82,14 @@ var regNames = {
   "%flags": 15,
   "%r15": 15
 };
-// TODO: make addition work
+
 function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructions by themselves
   undoStorage = input; // store in undo
   var lines = input.trim().split("\n");
   var instructions = [];
   for (var i = 0; i < lines.length; i++) {
-    lines[i] = lines[i].trim().replace(/\s+/g, " ");
-    var args = lines[i].split(" ");
+    lines[i] = lines[i].trim();
+    var args = lines[i].replace(/[\s,]+/g, ",").split(",");
     var op = args[0].toUpperCase();
     if (!(op in opcodes)) 
       return error("Unrecognized operation " + op + " on line " + i);
@@ -175,7 +175,19 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
       return error("Too many arguments on line " + i);
     }
   }
-  for (var i = 0; i < instructions.length; i++) { // print all instructions to console. may change later for copy paste powers
+  // print all instructions to console. may change later for copy paste powers
+  for (var i = 0; i < instructions.length; i++) {
     console.log((i*4) + ": " + hexToStr(instructions[i]));
   }
+
+  // load assembled code into the rom memory
+  if (instructions.length > 0x7fff)
+    return error("too many instructions(" + instructions.length + ", cannot fit into rom chip of 32 kib");
+  for (var i = 0; i < instructions.length; i++) {
+    setMemory(0x100000 + i*4, instructions[i], true, true);
+  }
+  // put a sleep instruction in case the rom already had stuff in it
+  setMemory(0x100000 + instructions.length*4, 0x00000000, true, true);
+  // now to start the vm
+  run();
 }

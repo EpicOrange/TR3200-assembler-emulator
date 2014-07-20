@@ -11,11 +11,11 @@ function padZero(txt, num) {
 function error(note) {
   console.log("ERROR: " + note);
 }
-function hexToStr(hex) {
+function hexToStr(hex, digits) {
   if (hex < 0)
     // magic trick http://www.gibdon.com/2006/12/javascript-fixing-negative-hexadecimal.html
     hex += 0xffffffff + 1;
-  return "0x" + padZero(hex.toString(16), 8);
+  return "0x" + padZero(hex.toString(16), digits || 8);
 }
 function numArgs(opcode) {
   if (typeof opcode == "string") {

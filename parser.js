@@ -51,16 +51,22 @@ function parseAsBin(input, code, bigendian) {
 
 function parse(input) {
   if (input.match(/^\s*$/g)) return; // return if input is just whitespace
-  var code = [];
+  var instructions = [];
   if (document.getElementById("format").selectedIndex == 0) {
-    parseAsHex(input, code);
+    parseAsHex(input, instructions);
   } else {
-    parseAsBin(input, code, document.getElementById("format").selectedIndex == 2);
+    parseAsBin(input, instructions, document.getElementById("format").selectedIndex == 2);
   }
-  // store rom in memory
-  code.forEach(function(val, i) {
-    memory[0x100000 + i] = val;
-  });
+
+  // load assembled code into the rom memory
+  if (instructions.length > 0x7fff)
+    return error("too many instructions(" + instructions.length + ", cannot fit into rom chip of 32 kib");
+  for (var i = 0; i < instructions.length; i++) {
+    setMemory(0x100000 + i*4, instructions[i], true, true);
+  }
+  // put a sleep instruction in case the rom already had stuff in it
+  setMemory(0x100000 + instructions.length*4, 0x00000000, true, true);
+  
   // now to start the vm
   run();
 }
