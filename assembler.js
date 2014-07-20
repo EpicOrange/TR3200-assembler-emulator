@@ -82,13 +82,31 @@ var regNames = {
   "%flags": 15,
   "%r15": 15
 };
+var regNames2 = {
+  0: "%r0",
+  1: "%r1",
+  2: "%r2",
+  3: "%r3",
+  4: "%r4",
+  5: "%r5",
+  6: "%r6",
+  7: "%r7",
+  8: "%r8",
+  9: "%r9",
+  10: "%r10",
+  11: "%y",
+  12: "%bp",
+  13: "%sp",
+  14: "%ia",
+  15: "%flags"
+};
 
 function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructions by themselves
   undoStorage = input; // store in undo
   var lines = input.trim().split("\n");
   var instructions = [];
   for (var i = 0; i < lines.length; i++) {
-    lines[i] = lines[i].trim();
+    lines[i] = lines[i].replace(/;.+/, "").trim(); // get rid of comments
     var args = lines[i].replace(/[\s,]+/g, ",").split(",");
     var op = args[0].toUpperCase();
     if (!(op in opcodes)) 
@@ -188,6 +206,4 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
   }
   // put a sleep instruction in case the rom already had stuff in it
   setMemory(0x100000 + instructions.length*4, 0x00000000, true, true);
-  // now to start the vm
-  run();
 }

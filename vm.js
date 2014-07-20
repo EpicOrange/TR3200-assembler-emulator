@@ -16,15 +16,19 @@ function getMemory(address, dword) {
     error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
 
   if (!dword) {
-    if (typeof memory[address] == "undefined")
-      return error("tried to get undefined ram byte at " + address);
+    if (typeof memory[address] == "undefined") {
+      error("tried to get undefined ram byte at " + hexToStr(address, 6));
+      return 0x00;
+    }
     return memory[address];
   } else {
     if (typeof memory[address] == "undefined"
         || typeof memory[address+1] == "undefined"
         || typeof memory[address+2] == "undefined"
-        || typeof memory[address+3] == "undefined")
-      return error("tried to get undefined ram dword at " + address);
+        || typeof memory[address+3] == "undefined") {
+      error("tried to get undefined ram dword at " + hexToStr(address, 6));
+      return 0x00000000;
+    }
     var value = memory[address];
     value = value | (memory[address+1] << 2*4);
     value = value | (memory[address+2] << 4*4);
@@ -76,14 +80,17 @@ function setRegister(register, value) {
     index = regNames[register];
   }
   setMemory(0x11ff00 + index, value, true);
+  document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
 }
+
 var pc; // still not sure where this is stored in memory, so it's here
 function boot() {
   // clear registers
-  for (var i = 0x11ff00; i < 0x11ff00 + (4*16); i++) {
-    setMemory(i, 0, true);
+  for (var i = 0; i < 16; i++) {
+    setRegister(i, 0);
   }
   pc = 0x100000; // start of rom
+  document.getElementById("pc").innerHTML = hexToStr(pc, 6);
   asleep = false;
 }
 
@@ -108,108 +115,95 @@ function execute(opcode, params, m, rn, rs, rd) { // TODO make this not dependen
       console.log("unimplemented opcode: 0x" + opcode.toString(16));
     }
 }
-// reminder: instructions are in little-endian
-function run() {
-  boot();
-  // TODO: left off trying to get this thing to iterate using %pc
-  do {
-    if (asleep) // test code to stop parsing rom when a sleep instruction is found
-      return;
-    var instruction = getMemory(pc, true);
-    var opcode = instruction & 0xff;
-    var parameters = numArgs(opcode); // number of parameters
-    var m = instruction & 0x00008000;
-    var rn = undefined, rs = undefined, rd = undefined;
 
-    // this entire switch is for extracting rn, rs, and rd from the instruction.
-    // there's probably a more compact and less readable way to do this
-    switch (parameters) {
-    case 3:
-      rs = opcode & 0xf0000000;
-      rd = opcode & 0x0f000000;
-      if (m) {
-        if ((instruction & 0x00ffff00) == 0x00004000) {
-          pc += 4;
-          rn = getMemory(pc, true);
-        } else {
-          rn = ((instruction & 0x00ff0000) >> 4*4)
-             | ((instruction & 0x00007f00) >> 0*4);
-        }
+function step() {
+  var instruction = getMemory(pc, true); // reminder: instructions are in little-endian
+  var opcode = instruction & 0xff;
+  var parameters = numArgs(opcode); // number of parameters
+  var m = instruction & 0x00008000;
+  var rn = undefined, rs = undefined, rd = undefined;
+
+  // update the table
+  // todo: also show the assembly code version, e.g. 0xd0018040 => MOV 0x00000010 %sp
+  document.getElementById("pc").innerHTML = hexToStr(pc, 6);
+  document.getElementById("currentInstruction").innerHTML = hexToStr(instruction);
+
+  // this entire switch is for extracting rn, rs, and rd from the instruction.
+  // there's probably a more compact and less readable way to do this
+  switch (parameters) {
+  case 3:
+    rs = opcode & 0xf0000000;
+    rd = opcode & 0x0f000000;
+    if (m) {
+      if ((instruction & 0x00ffff00) == 0x00004000) {
+        pc += 4;
+        rn = getMemory(pc, true);
       } else {
-        rn = opcode & 0x000f0000;
+        rn = ((instruction & 0x00ff0000) >> 4*4)
+           | ((instruction & 0x00007f00) >> 0*4);
       }
-      break;
-    case 2:
-      rd = opcode & 0x0f000000;
-      if (m) {
-        if ((instruction & 0xf0ffff00) == 0x00004000) {
-          pc += 4;
-          rn = getMemory(pc, true);
-        } else {
-          rn = ((instruction & 0xf0000000) >> 7*4)
-             | ((instruction & 0x00ff0000) >> 3*4)
-             | ((instruction & 0x00007f00) << 1*4);
-        }
-      } else {
-        rn = opcode & 0xf0000000;
-      }
-      break;
-    case 1:
-      if (m) {
-        if ((instruction & 0xffffff00) == 0x00004000) {
-          pc += 4;
-          rn = getMemory(pc, true);
-        } else {
-          rn = ((instruction & 0xff000000) >> 6*4)
-             | ((instruction & 0x00ff0000) >> 2*4)
-             | ((instruction & 0x00007f00) << 2*4);
-        }
-      } else {
-        rn = opcode & 0x0f000000;
-      }
-      break;
-    case 0:
-      break;
+    } else {
+      rn = opcode & 0x000f0000;
     }
+    break;
+  case 2:
+    rd = opcode & 0x0f000000;
+    if (m) {
+      if ((instruction & 0xf0ffff00) == 0x00004000) {
+        pc += 4;
+        rn = getMemory(pc, true);
+      } else {
+        rn = ((instruction & 0xf0000000) >> 7*4)
+           | ((instruction & 0x00ff0000) >> 3*4)
+           | ((instruction & 0x00007f00) << 1*4);
+      }
+    } else {
+      rn = opcode & 0xf0000000;
+    }
+    break;
+  case 1:
+    if (m) {
+      if ((instruction & 0xffffff00) == 0x00004000) {
+        pc += 4;
+        rn = getMemory(pc, true);
+      } else {
+        rn = ((instruction & 0xff000000) >> 6*4)
+           | ((instruction & 0x00ff0000) >> 2*4)
+           | ((instruction & 0x00007f00) << 2*4);
+      }
+    } else {
+      rn = opcode & 0x0f000000;
+    }
+    break;
+  case 0:
+    break;
+  }
 
-    // debug code
-    var debugText = "PC: " + hexToStr(pc, 6) + "; read instruction " + hexToStr(instruction) + "\n\t";
-    debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
-    debugText += "m: " + (m ? "true; " : "false; ");
-    if (typeof rn != "undefined")
-      debugText += "rn: " + (regNames2[rn] || hexToStr(rn)) + "; ";
-    if (typeof rs != "undefined")
-      debugText += "rs: " + regNames2[rs] + "; ";
-    if (typeof rd != "undefined")
-      debugText += "rd: " + regNames2[rd] + "; ";
-    console.log(debugText);
+  // debug code
+  var debugText = "PC: " + hexToStr(pc, 6) + "; read instruction " + hexToStr(instruction) + "\n\t";
+  debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
+  debugText += "m: " + (m ? "true; " : "false; ");
+  if (typeof rn != "undefined")
+    debugText += "rn: " + (regNames2[rn] || hexToStr(rn)) + "; ";
+  if (typeof rs != "undefined")
+    debugText += "rs: " + regNames2[rs] + "; ";
+  if (typeof rd != "undefined")
+    debugText += "rd: " + regNames2[rd] + "; ";
+  console.log(debugText);
 
-    // now to actually execute the code
-    execute(opcode, parameters, m, rn, rs, rd);
-  } while (pc += 4);
-  console.log("done with rom execution");
-  sleep();
+  // now to actually execute the code
+  execute(opcode, parameters, m, rn, rs, rd);
+  pc += 4;
 }
 
-var regNames2 = { // this is for debug. remove sometime
-  0: "%r0",
-  1: "%r1",
-  2: "%r2",
-  3: "%r3",
-  4: "%r4",
-  5: "%r5",
-  6: "%r6",
-  7: "%r7",
-  8: "%r8",
-  9: "%r9",
-  10: "%r10",
-  11: "%y",
-  12: "%bp",
-  13: "%sp",
-  14: "%ia",
-  15: "%flags"
-};
-
+function run() {
+  boot();
+  while (!asleep) { // test code to stop parsing rom when a sleep instruction is found
+    step();
+  }
+  document.getElementById("currentInstruction").innerHTML = "asleep";
+  sleep();
+}
 
 // below are just notes n stuff
 /*

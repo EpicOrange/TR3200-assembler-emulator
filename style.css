@@ -19,3 +19,41 @@ textarea {
   max-width: 640px;
   height: 100px;
 }
+
+input[type="button"] {
+  border: none;
+  font-family: "Trebuchet MS";
+}
+
+input[type="button"]:focus {
+  outline: 0;
+}
+
+textarea, select, input[type="button"] {
+  background-color: #dfd;
+}
+
+table {
+  border-collapse: collapse;
+  font-family: "Trebuchet MS";
+  font-size: 16px;
+  margin-left: auto; /* magic centering code */
+  margin-right: auto; /* http://www.granneman.com/webdev/coding/css/centertables/ */
+  width: 1px;
+}
+
+td, th {
+  border: 1px solid #2f2;
+  padding: 2px;
+  text-align: right;
+}
+
+th {
+  border-bottom-width: 2px;
+}
+
+td span, th span {
+  font-family: "Courier New";
+  color: #fff;
+  float: left;
+}
