@@ -6,22 +6,26 @@ body {
   box-sizing: border-box;
 }
 
+div {
+  display: inline-block;
+  float: left;
+  margin: 2px;
+}
+
 div#container {
   float: none;
-  margin-left: auto;
-  margin-right: auto;
+}
+
+div#rom-controls {
+  text-align: left;
+  width: 320px;
+  margin: 0;
+  margin-left: 2px;
 }
 
 h1 {
   font-size: 48px;
   margin: 0;
-}
-
-div {
-  display: inline-block;
-  margin: 4px;
-  margin-bottom: 0px;
-  float: left;
 }
 
 canvas {
@@ -38,10 +42,18 @@ textarea, select, input {
   box-sizing: border-box;
 }
 
+textarea {
+  width: 320px;
+  max-width: 320px;
+  height: 70px;
+  float: left; /* somehow this makes them align */
+}
+
 table {
   border-collapse: collapse;
   font-size: 16px;
   width: 320px;
+  margin: 0;
 }
 
 td, th {
@@ -59,19 +71,9 @@ td>span, th>span {
   color: #fff;
 }
 
-textarea {
-  width: 320px;
-  max-width: 320px;
-  height: 70px;
-  float: left; /* somehow this makes them align */
-  margin: 4px;
-}
-
 input[type="button"] {
   border: 1px outset #dfd;
   border-radius: 4px;
-  margin-top: 2px; /* to offset adjacent buttons a bit */
-  margin-bottom: 2px;
 }
 
 input[type="button"]:focus {
@@ -80,11 +82,6 @@ input[type="button"]:focus {
 
 input[type="button"]:active {
   border-style: inset;
-}
-
-div#rom-controls {
-  text-align: left;
-  width: 320px;
 }
 
 table#registerView td, table#registerView th {
@@ -112,7 +109,6 @@ table#memoryView>tbody.memoryButtonContainer>tr>td {
 input[type="button"].memoryButton { /* TODO make these images or something */
   width: 100%;
   height: 100%;
-  margin: 0;
   padding: 0;
   border: 1px outset #0c0;
   border-radius: 0px;
