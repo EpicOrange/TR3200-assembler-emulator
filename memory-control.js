@@ -36,7 +36,7 @@ function updateMemoryTable(newAddress) {
     var address = document.getElementById("memory-address-" + i);
     var value = document.getElementById("memory-value-" + i);
     var assignedAddress = currentPos + (i*4);
-    address.innerText = hexToStr(assignedAddress, 6);
-    value.innerText = hexToStr(getMemory(assignedAddress, true, true));
+    address.innerHTML = hexToStr(assignedAddress, 6);
+    value.innerHTML = hexToStr(getMemory(assignedAddress, true, true));
   }
 }

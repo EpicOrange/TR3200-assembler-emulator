@@ -1,6 +1,9 @@
+<!DOCTYPE HTML>
 <html>
   <head>
-	<title>TR3200 Emulator</title>
+  	<title>TR3200 Emulator</title>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
     <script src="util.js"></script>
     <script src="vm.js"></script>
     <script src="dump.js"></script>
@@ -18,24 +21,25 @@
     <div id="container">
       <!-- for the TDA in the future -->
       <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
-      <div id="rom-controls">
+      <div id="input-area">
         <textarea id="input"></textarea>
-        <input type="button" id="parse" value="store into rom"> as 
-        <select id="format">
-          <option value="hex">Hexadecimal</option>
-          <option value="bin1">Binary (little-endian)</option>
-          <option value="bin2">Binary (big-endian)</option>
-        </select>
-        <br>
-        <input type="button" id="assemble" value="assemble, and store in rom">
-        <br>
-        <input type="button" id="write" value="write">
-        <input type="button" id="undo" value="undo">
+        <div id="rom-controls">
+          <input type="button" id="parse" value="store into rom"> as 
+          <select id="format">
+            <option value="hex">Hexadecimal</option>
+            <option value="bin1">Binary (little-endian)</option>
+            <option value="bin2">Binary (big-endian)</option>
+          </select>
+          <br>
+          <input type="button" id="assemble" value="assemble, and store in rom">
+          <br>
+          <input type="button" id="write" value="write">
+          <input type="button" id="undo" value="undo">
+        </div>
       </div>
       <br>
-      <br>
       <div id="vm-controls">
-        <div id="control-container">
+        <div id="register-container">
           <table id="registerView" width="500px">
             <thead>
               <tr>

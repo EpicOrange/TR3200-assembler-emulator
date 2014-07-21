@@ -7,14 +7,14 @@ body {
 
 div {
   display: inline-block;
+  margin: 8px;
 }
 
-div#control-container {
-  float: left;
+div#register-container {
+  float: left; /* somehow this makes the containers align */
 }
 
 div#memory-container {
-  display: inline-block;
   text-align: center;
 }
 
@@ -54,11 +54,14 @@ table {
   font-size: 16px;
   margin-left: auto; /* magic centering code */
   margin-right: auto; /* http://www.granneman.com/webdev/coding/css/centertables/ */
+  margin-bottom: 2px; /* to offset the buttons a bit */
   width: 320px; /* default value */
 }
 
 td, th {
   border: 1px solid #2f2;
+  padding: 0;
+  padding-right: 2px;
 }
 
 th {
@@ -73,20 +76,17 @@ td>span, th>span {
 table#registerView td, table#registerView th {
   height: 24px;
   font-size: 14px;
-  padding: 2px;
   text-align: right;
 }
 
 table#memoryView {
   border: 1px solid #2f2;
   table-layout: fixed;
-  margin-left: 8px;
 }
 
 table#memoryView td, table#memoryView th {
   height: 24px;
   font-size: 14px;
-  padding: 2px;
   text-align: right;
   font-family: "Courier New";
   color: #fff;
