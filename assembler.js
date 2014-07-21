@@ -207,4 +207,7 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
   }
   // put a sleep instruction in case the rom already had stuff in it
   setMemory(0x100000 + instructions.length*4, 0x00000000, true, true);
+
+  // restart the VM
+  boot();
 }

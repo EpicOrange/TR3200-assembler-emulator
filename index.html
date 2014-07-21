@@ -6,6 +6,7 @@
     <script src="dump.js"></script>
     <script src="parser.js"></script>
     <script src="assembler.js"></script>
+    <script src="memory-control.js"></script>
     <script src="init.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css"/>
     <style type="text/css">
@@ -95,22 +96,28 @@
               </tr>
             </tbody>
           </table>
-          <br>
           <input type="button" id="reset" value="reset">
           <input type="button" id="run" value="run">
           <input type="button" id="step" value="step">
         </div>
         <div id="memory-container">
-          <input type="button" id="memoryTop" value="^" class="memoryButton">
-          <table id="memory">
-            <tbody>
-              <tr><td>a: 0</td></tr>
-              <tr><td>b: 1</td></tr>
-              <tr><td>c: 2</td></tr>
-              <tr><td>d: 4</td></tr>
+          <table id="memoryView">
+            <thead>
+              <tr>
+                <th>Address</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody class="memoryButtonContainer"><tr><td colspan="2">
+              <input type="button" id="memoryTop" value="^" class="memoryButton">
+            </td></tr></tbody>
+            <tbody id="memory-body">
             </tbody>
+            <tbody class="memoryButtonContainer"><tr><td colspan="2">
+              <input type="button" id="memoryBottom" value="V" class="memoryButton">
+            </td></tr></tbody>
           </table>
-          <input type="button" id="memoryBottom" value="V" class="memoryButton">
+          <input type="button" id="jump" value="Jump to address">: 0x<input type="text" id="jumpValue" size="6" maxlength="6">
         </div>
       </div>
     </div>

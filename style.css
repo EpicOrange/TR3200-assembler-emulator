@@ -14,7 +14,8 @@ div#control-container {
 }
 
 div#memory-container {
-  float: left;
+  display: inline-block;
+  text-align: center;
 }
 
 div#rom-controls {
@@ -43,7 +44,7 @@ input[type="button"]:focus {
   outline: 0;
 }
 
-textarea, select, input[type="button"] {
+textarea, select, input {
   background-color: #dfd;
 }
 
@@ -53,42 +54,68 @@ table {
   font-size: 16px;
   margin-left: auto; /* magic centering code */
   margin-right: auto; /* http://www.granneman.com/webdev/coding/css/centertables/ */
-  width: 0; /* force table to shrink */
+  width: 320px; /* default value */
 }
 
 td, th {
   border: 1px solid #2f2;
-  padding: 2px;
-  text-align: right;
 }
 
 th {
   border-bottom-width: 2px;
 }
 
-td span, th span {
+td>span, th>span {
   font-family: "Courier New";
   color: #fff;
 }
 
-table#memory {
-  position: relative;
-  top: 0;
-  bottom: 0;
-  border: 1px solid #2f2;
-  width: 50px;
-  table-layout: fixed;
+table#registerView td, table#registerView th {
+  height: 24px;
+  font-size: 14px;
+  padding: 2px;
+  text-align: right;
 }
 
-table#memory tbody tr {
+table#memoryView {
+  border: 1px solid #2f2;
+  table-layout: fixed;
+  margin-left: 8px;
+}
+
+table#memoryView td, table#memoryView th {
+  height: 24px;
+  font-size: 14px;
+  padding: 2px;
+  text-align: right;
+  font-family: "Courier New";
+  color: #fff;
+}
+
+table#memoryView tr {
   font-family: "Courier New";
   color: #fff;
   height: 1em;
   padding: 2px;
 }
 
-.memoryButton {
-  width: 50px;
-  height: 50px;
-  margin: 8px;
+table#memoryView>tbody.memoryButtonContainer>tr>td {
+  padding: 0;
+}
+
+table#memoryView th {
+  text-align: center;
+}
+
+input[type="button"].memoryButton {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px outset #dfd;
+  background-color: #484;
+}
+
+input[type="button"].memoryButton:active {
+  border-style: inset;
 }

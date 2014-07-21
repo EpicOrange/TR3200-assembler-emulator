@@ -11,35 +11,41 @@ Important addresses:
 0x11ff00-0x11ffff: registers
 
 */
-function getMemory(address, dword) {
+// table supresses warnings; table is true when it's the table fetching a value
+function getMemory(address, dword, table) {
   if (address < 0x000000 || address > mem_size_)
     return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
-
+  if (dword && ((address % 4) != 0))
+    warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
   if (!dword) {
     if (typeof memory[address] == "undefined") {
-      warning("tried to get undefined ram byte at " + hexToStr(address, 6));
+      if (!table)
+        warning("tried to get undefined ram byte at " + hexToStr(address, 6));
       return 0x00;
     }
     return memory[address];
   } else {
-    if (typeof memory[address] == "undefined"
+    if ( typeof memory[address] == "undefined"
         || typeof memory[address+1] == "undefined"
         || typeof memory[address+2] == "undefined"
-        || typeof memory[address+3] == "undefined") {
-      warning("tried to get undefined ram dword at " + hexToStr(address, 6));
+        || typeof memory[address+3] == "undefined" ) {
+      if (!table)
+        warning("tried to get undefined ram dword at " + hexToStr(address, 6));
       return 0x00000000;
     }
     var value = memory[address];
     value = value | (memory[address+1] << 2*4);
     value = value | (memory[address+2] << 4*4);
     value = value | (memory[address+3] << 6*4);
-    return value; // this returns a little-endian dword
+    return (value >>> 0); // this returns a little-endian dword
   }
 }
 // todo get and set rng and clock speed
 function setMemory(address, value, dword, setRom) {
   if (address < 0x000000 || address > mem_size_)
     return error("tried to set ram at out-of-bounds address " + hexToStr(address, 6));
+  if (dword && ((address % 4) != 0))
+    warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
   if (!setRom && address >= 0x100000 && address <= 0x107fff)
     return error("tried to set address in rom: " + hexToStr(address, 6));
   if (typeof value != "number" && isNaN(parseInt(value)))
@@ -47,39 +53,43 @@ function setMemory(address, value, dword, setRom) {
         + " to address " + hexToStr(address, 6));
   if (typeof value == "string")
     value = parseInt(value);
-
   if (!dword) {
+    if (value > 0xff)
+      return error("tried to set the byte at address " + hexToStr(address, 6)
+          + " to out-of-range value " + hexToStr(value));
     memory[address] = value;
   } else {
-    memory[address+0] = (value & 0x000000ff) >> 0*4;
-    memory[address+1] = (value & 0x0000ff00) >> 2*4;
-    memory[address+2] = (value & 0x00ff0000) >> 4*4;
-    memory[address+3] = (value & 0xff000000) >> 6*4;
+    if (value > 0xffffffff)
+      return error("tried to set the dword at address " + hexToStr(address, 6)
+          + " to out-of-range value " + hexToStr(value));
+    memory[address+0] = (value >> 0*4) & 0x000000ff;
+    memory[address+1] = (value >> 2*4) & 0x000000ff;
+    memory[address+2] = (value >> 4*4) & 0x000000ff;
+    memory[address+3] = (value >> 6*4) & 0x000000ff;
+  }
+
+  // update the user's table if the address is within bounds
+  if (address >= currentPos && address < currentPos + 24) {
+    updateMemoryTable();
   }
 }
 function getRegister(register) {
-  var index;
-  if (typeof register == "number")
-    index = register;
-  else {
-    if (!(register in regNames)) {
-      return error("Tried to get invalid register: " + register);
-    }
+  var index = register;
+  if (typeof register != "number") {
+    if (!(register in regNames))
+      return error("Tried to get an invalid register: " + register);
     index = regNames[register];
   }
   return getMemory(0x11ff00 + index, true);
 }
 function setRegister(register, value) {
-  var index;
-  if (typeof register == "number")
-    index = register;
-  else {
-    if (!(register in regNames)) {
-      return error("Tried to get invalid register: " + register);
-    }
+  var index = register;
+  if (typeof register != "number") {
+    if (!(register in regNames))
+      return error("Tried to get an invalid register: " + register);
     index = regNames[register];
   }
-  setMemory(0x11ff00 + index, value, true);
+  setMemory(0x11ff00 + index*4, value, true);
   document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
 }
 
@@ -216,7 +226,7 @@ function run() {
   while (!asleep) { // test code to stop parsing rom when a sleep instruction is found
     step();
   }
-  document.getElementById("currentInstruction").innerHTML = "asleep";
+  document.getElementById("currentInstruction").innerHTML = "N/A";
   sleep();
 }
 

@@ -13,6 +13,9 @@ function init() {
   document.getElementById("reset").addEventListener('click', boot, false);
   document.getElementById("run").addEventListener('click', run, false);
   document.getElementById("step").addEventListener('click', step, false);
+  document.getElementById("memoryTop").addEventListener("click", function() {updateMemoryTable(currentPos - 4);}, false);
+  document.getElementById("memoryBottom").addEventListener("click", function() {updateMemoryTable(currentPos + 4);}, false);
+  document.getElementById("jump").addEventListener("click", function() {updateMemoryTable(document.getElementById("jumpValue").value);}, false);
 
   // setup canvas  
   viewX = document.getElementById("canvas").width / charX; // number of tiles X
@@ -25,6 +28,8 @@ function init() {
   fore = colors[15];
   back = colors[0];
 
-  input.value = "MOV 0x3200 %r0\nMOV %r0 %r1 ; assemble me and run!";
+  document.getElementById("jumpValue").value = "000000";
+  document.getElementById("input").value = "MOV 0x3200 %r0\nMOV %r0 %r1 ; assemble me and run!";
   boot();
+  updateMemoryTable();
 }
