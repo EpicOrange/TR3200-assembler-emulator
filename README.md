@@ -6,6 +6,8 @@ This is an assembler and VM for the TR3200 cpu. ([specs](https://github.com/tril
 
 You can try it out [here](http://epicorange.github.io/TR3200-assembler-emulator).
 
+NOTE: The thing with arrows is dysfunctional at the moment.
+
 TR3200 Documentation
 --------------------
 https://github.com/trillek-team/trillek-computer  

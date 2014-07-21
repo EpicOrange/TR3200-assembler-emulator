@@ -2,10 +2,23 @@ body {
   text-align: center;
   background-color: #080;
   color: #8f8;
+  box-sizing: border-box;
 }
 
 div {
-  color: #0f0;
+  display: inline-block;
+}
+
+div#control-container {
+  float: left;
+}
+
+div#memory-container {
+  float: left;
+}
+
+div#rom-controls {
+  text-align: left;
 }
 
 canvas {
@@ -15,9 +28,10 @@ canvas {
 }
 
 textarea {
-  width: 640px;
+  width: 320px; /* 640 px */
   max-width: 640px;
   height: 100px;
+  float: left;
 }
 
 input[type="button"] {
@@ -39,7 +53,7 @@ table {
   font-size: 16px;
   margin-left: auto; /* magic centering code */
   margin-right: auto; /* http://www.granneman.com/webdev/coding/css/centertables/ */
-  width: 1px;
+  width: 0; /* force table to shrink */
 }
 
 td, th {
@@ -55,4 +69,26 @@ th {
 td span, th span {
   font-family: "Courier New";
   color: #fff;
+}
+
+table#memory {
+  position: relative;
+  top: 0;
+  bottom: 0;
+  border: 1px solid #2f2;
+  width: 50px;
+  table-layout: fixed;
+}
+
+table#memory tbody tr {
+  font-family: "Courier New";
+  color: #fff;
+  height: 1em;
+  padding: 2px;
+}
+
+.memoryButton {
+  width: 50px;
+  height: 50px;
+  margin: 8px;
 }

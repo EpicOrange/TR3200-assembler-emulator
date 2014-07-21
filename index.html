@@ -14,86 +14,106 @@
     </script>
   </head>
   <body onload="init()">
-    <canvas id="canvas" width="640" height="480"></canvas> <!-- for the TDA in the future -->
-    <br>
-    <br>
-    <textarea id="input"></textarea>
-    <br>
-    <input type="button" id="write" value="write">
-    <input type="button" id="parse" value="store into rom"> as 
-    <select id="format">
-      <option value="hex">Hexadecimal</option>
-      <option value="bin1">Binary (little-endian)</option>
-      <option value="bin2">Binary (big-endian)</option>
-    </select>
-    <input type="button" id="assemble" value="assemble, and store in rom">
-    <input type="button" id="undo" value="undo">
-    <br>
-    <br>
-    <table id="registerView" width="500px">
-      <thead>
-        <tr>
-          <th>PC:</th>
-          <th><span id="pc"></span></th>
-          <th>Execute</th>
-          <th><span id="currentInstruction">N/A</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>%r0:</td>
-          <td><span id="%r0"></span></td>
-          <td>%r6:</td>
-          <td><span id="%r6"></span></td>
-        </tr>
-        <tr>
-          <td>%r1:</td>
-          <td><span id="%r1"></span></td>
-          <td>%r7:</td>
-          <td><span id="%r7"></span></td>
-        </tr>
-        <tr>
-          <td>%r2:</td>
-          <td><span id="%r2"></span></td>
-          <td>%r8:</td>
-          <td><span id="%r8"></span></td>
-        </tr>
-        <tr>
-          <td>%r3:</td>
-          <td><span id="%r3"></span></td>
-          <td>%r9:</td>
-          <td><span id="%r9"></span></td>
-        </tr>
-        <tr>
-          <td>%r4:</td>
-          <td><span id="%r4"></span></td>
-          <td>%r10:</td>
-          <td><span id="%r10"></span></td>
-        </tr>
-        <tr>
-          <td>%r5:</td>
-          <td><span id="%r5"></span></td>
-          <td>%y:</td>
-          <td><span id="%y"></span></td>
-        </tr>
-        <tr>
-          <td>%bp:</td>
-          <td><span id="%bp"></span></td>
-          <td>%sp:</td>
-          <td><span id="%sp"></span></td>
-        </tr>
-        <tr>
-          <td>%ia:</td>
-          <td><span id="%ia"></span></td>
-          <td>%flags:</td>
-          <td><span id="%flags"></span></td>
-        </tr>
-      </tbody>
-    </table>
-    <br>
-    <input type="button" id="reset" value="reset">
-    <input type="button" id="run" value="run">
-    <input type="button" id="step" value="step">
+    <div id="container">
+      <!-- for the TDA in the future -->
+      <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
+      <div id="rom-controls">
+        <textarea id="input"></textarea>
+        <input type="button" id="parse" value="store into rom"> as 
+        <select id="format">
+          <option value="hex">Hexadecimal</option>
+          <option value="bin1">Binary (little-endian)</option>
+          <option value="bin2">Binary (big-endian)</option>
+        </select>
+        <br>
+        <input type="button" id="assemble" value="assemble, and store in rom">
+        <br>
+        <input type="button" id="write" value="write">
+        <input type="button" id="undo" value="undo">
+      </div>
+      <br>
+      <br>
+      <div id="vm-controls">
+        <div id="control-container">
+          <table id="registerView" width="500px">
+            <thead>
+              <tr>
+                <th>PC:</th>
+                <th><span id="pc"></span></th>
+                <th>Execute</th>
+                <th><span id="currentInstruction">N/A</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>%r0:</td>
+                <td><span id="%r0"></span></td>
+                <td>%r6:</td>
+                <td><span id="%r6"></span></td>
+              </tr>
+              <tr>
+                <td>%r1:</td>
+                <td><span id="%r1"></span></td>
+                <td>%r7:</td>
+                <td><span id="%r7"></span></td>
+              </tr>
+              <tr>
+                <td>%r2:</td>
+                <td><span id="%r2"></span></td>
+                <td>%r8:</td>
+                <td><span id="%r8"></span></td>
+              </tr>
+              <tr>
+                <td>%r3:</td>
+                <td><span id="%r3"></span></td>
+                <td>%r9:</td>
+                <td><span id="%r9"></span></td>
+              </tr>
+              <tr>
+                <td>%r4:</td>
+                <td><span id="%r4"></span></td>
+                <td>%r10:</td>
+                <td><span id="%r10"></span></td>
+              </tr>
+              <tr>
+                <td>%r5:</td>
+                <td><span id="%r5"></span></td>
+                <td>%y:</td>
+                <td><span id="%y"></span></td>
+              </tr>
+              <tr>
+                <td>%bp:</td>
+                <td><span id="%bp"></span></td>
+                <td>%sp:</td>
+                <td><span id="%sp"></span></td>
+              </tr>
+              <tr>
+                <td>%ia:</td>
+                <td><span id="%ia"></span></td>
+                <td>%flags:</td>
+                <td><span id="%flags"></span></td>
+              </tr>
+            </tbody>
+          </table>
+          <br>
+          <input type="button" id="reset" value="reset">
+          <input type="button" id="run" value="run">
+          <input type="button" id="step" value="step">
+        </div>
+        <div id="memory-container">
+          <input type="button" id="memoryTop" value="^" class="memoryButton">
+          <table id="memory">
+            <tbody>
+              <tr><td>a: 0</td></tr>
+              <tr><td>b: 1</td></tr>
+              <tr><td>c: 2</td></tr>
+              <tr><td>d: 4</td></tr>
+            </tbody>
+          </table>
+          <input type="button" id="memoryBottom" value="V" class="memoryButton">
+        </div>
+      </div>
+    </div>
   </body>
 </html>
 
