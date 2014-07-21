@@ -23,13 +23,6 @@ function writeCanvas(input) {
   }
 }
 
-var undoStorage = "";
-function undo() {
-  var temp = document.getElementById("input").value;
-  document.getElementById("input").value = undoStorage;
-  undoStorage = temp;
-}
-
 var colors = [
   "#000000", // Black
   "#EFDCB2", // Light Blue

@@ -1,3 +1,4 @@
+// this is for the canvas for future TDA implementation
 var charX = 16;
 var charY = 24;
 var viewX, viewY;
@@ -17,7 +18,7 @@ function init() {
   document.getElementById("memoryBottom").addEventListener("click", function() {updateMemoryTable(currentPos + 4);}, false);
   document.getElementById("jump").addEventListener("click", function() {updateMemoryTable(document.getElementById("jumpValue").value);}, false);
 
-  // setup canvas  
+  // setup canvas
   viewX = document.getElementById("canvas").width / charX; // number of tiles X
   viewY = document.getElementById("canvas").height / charY; // and Y
   canvas = document.getElementById("canvas").getContext('2d'); // setup context
@@ -29,7 +30,10 @@ function init() {
   back = colors[0];
 
   document.getElementById("jumpValue").value = "000000";
-  document.getElementById("input").value = "MOV 0x3200 %r0\nMOV %r0 %r1 ; assemble me and run!";
+
+  var defaultInput = "MOV 0x3200 %r0\nMOV %r0 %r1 ; assemble me and run!";
+  document.getElementById("input").value = defaultInput;
+  undoStorage = defaultInput;
   boot();
   updateMemoryTable();
 }

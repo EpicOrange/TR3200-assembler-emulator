@@ -40,3 +40,10 @@ function numArgs(opcode) {
     return error("tried to get number of args of a negative opcode: " + opcode);
   }
 }
+
+var undoStorage = "";
+function undo() {
+  var temp = document.getElementById("input").value;
+  document.getElementById("input").value = undoStorage;
+  undoStorage = temp;
+}
