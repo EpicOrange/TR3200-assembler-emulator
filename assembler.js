@@ -106,7 +106,7 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
   var lines = input.trim().split("\n");
   var instructions = [];
   for (var i = 0; i < lines.length; i++) {
-    lines[i] = lines[i].replace(/;.+/, "").trim(); // get rid of comments
+    lines[i] = lines[i].replace(/;.+$/, "").trim(); // get rid of comments
     var args = lines[i].replace(/[\s,]+/g, ",").split(",");
     var op = args[0].toUpperCase();
     if (!(op in opcodes)) 

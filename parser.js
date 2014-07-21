@@ -21,7 +21,7 @@ function parseAsHex(input, code) {
 function parseAsBin(input, code, bigendian) {
   if (!input.match(/^[\s01]+$/g)) // make sure input is only binary
     return error("input is not in binary");
-  input = input.trim().replace(/\s+/, " ") + " "; // replace all whitespace with one space
+  input = input.trim().replace(/\s+/g, " ") + " "; // replace all whitespace with one space
   undoStorage = input; // store in undo
   if ( !(input.match(/^([01]{4} )+$/)) // nibbles
       && !(input.match(/^([01]{8} )+$/)) // bytes
