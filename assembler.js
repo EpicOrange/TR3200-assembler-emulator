@@ -135,6 +135,7 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
       instruction = instruction | (regNames[args[3]] << 6*4); // rd: 0x 0* 00 00 00
       if (typeof args[1] == "number") { // if rn is a number value
         if (Math.abs(value) >= 0x4000) {
+          // todo add some checking for if the value is greater than 0xffffffff
           instruction = instruction | 0x0000C000;
           instructions.push(instruction);
           instructions.push(args[1]);

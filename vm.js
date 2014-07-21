@@ -121,7 +121,7 @@ function step() {
   var instruction = getMemory(pc, true); // reminder: instructions are in little-endian
   var opcode = instruction & 0xff;
   var parameters = numArgs(opcode); // number of parameters
-  var m = instruction & 0x00008000;
+  var m = (instruction & 0x00008000) >> 15;
   var rn = undefined, rs = undefined, rd = undefined;
 
   // update the table
@@ -136,7 +136,7 @@ function step() {
     rs = (instruction & 0xf0000000) >> 7*4;
     rd = (instruction & 0x0f000000) >> 6*4;
     if (m) {
-      if ((instruction & 0x00ffff00) == 0x00004000) {
+      if ((instruction & 0x00ff7f00) == 0x00004000) {
         pc += 4;
         rn = getMemory(pc, true);
       } else {
@@ -150,7 +150,7 @@ function step() {
   case 2:
     rd = (instruction & 0x0f000000) >> 6*4;
     if (m) {
-      if ((instruction & 0xf0ffff00) == 0x00004000) {
+      if ((instruction & 0xf0ff7f00) == 0x00004000) {
         pc += 4;
         rn = getMemory(pc, true);
       } else {
@@ -164,7 +164,7 @@ function step() {
     break;
   case 1:
     if (m) {
-      if ((instruction & 0xffffff00) == 0x00004000) {
+      if ((instruction & 0xffff7f00) == 0x00004000) {
         pc += 4;
         rn = getMemory(pc, true);
       } else {
