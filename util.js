@@ -11,6 +11,9 @@ function padZero(txt, num) {
 function error(note) {
   console.log("ERROR: " + note);
 }
+function warning(note) {
+  console.log("WARNING: " + note);
+}
 function hexToStr(hex, digits) {
   if (hex < 0)
     // magic trick http://www.gibdon.com/2006/12/javascript-fixing-negative-hexadecimal.html

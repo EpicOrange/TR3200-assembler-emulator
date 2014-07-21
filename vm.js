@@ -13,11 +13,11 @@ Important addresses:
 */
 function getMemory(address, dword) {
   if (address < 0x000000 || address > mem_size_)
-    error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
+    return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
 
   if (!dword) {
     if (typeof memory[address] == "undefined") {
-      error("tried to get undefined ram byte at " + hexToStr(address, 6));
+      warning("tried to get undefined ram byte at " + hexToStr(address, 6));
       return 0x00;
     }
     return memory[address];
@@ -26,7 +26,7 @@ function getMemory(address, dword) {
         || typeof memory[address+1] == "undefined"
         || typeof memory[address+2] == "undefined"
         || typeof memory[address+3] == "undefined") {
-      error("tried to get undefined ram dword at " + hexToStr(address, 6));
+      warning("tried to get undefined ram dword at " + hexToStr(address, 6));
       return 0x00000000;
     }
     var value = memory[address];
@@ -108,6 +108,20 @@ function execute(opcode, params, m, rn, rs, rd) { // TODO make this not dependen
     switch (opcode) {
     case 0x0: // SLEEP
       sleep();
+      break;
+    case 0x23: // POP
+      if (m)
+        warning("m bit set while executing POP");
+      var address = getRegister("%sp") + 4;
+      setRegister(rn, getMemory(address, true));
+      setRegister("%sp", address);
+      break;
+    case 0x24: // PUSH
+      if (m)
+        warning("m bit set while executing PUSH");
+      var address = getRegister("%sp");
+      setMemory(address, getRegister(rn), true);
+      setRegister("%sp", address - 4);
       break;
     case 0x40: // MOV
       setRegister(rd, (m ? rn : getRegister(rn)));
