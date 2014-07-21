@@ -92,6 +92,7 @@ function boot() {
   pc = 0x100000; // start of rom
   document.getElementById("pc").innerHTML = hexToStr(pc, 6);
   asleep = false;
+  document.getElementById("currentInstruction").innerHTML = "N/A";
 }
 
 var asleep = false; // temporary test thingy
@@ -132,8 +133,8 @@ function step() {
   // there's probably a more compact and less readable way to do this
   switch (parameters) {
   case 3:
-    rs = opcode & 0xf0000000;
-    rd = opcode & 0x0f000000;
+    rs = (instruction & 0xf0000000) >> 7*4;
+    rd = (instruction & 0x0f000000) >> 6*4;
     if (m) {
       if ((instruction & 0x00ffff00) == 0x00004000) {
         pc += 4;
@@ -143,11 +144,11 @@ function step() {
            | ((instruction & 0x00007f00) >> 0*4);
       }
     } else {
-      rn = opcode & 0x000f0000;
+      rn = (instruction & 0x000f0000) >> 4*4;
     }
     break;
   case 2:
-    rd = opcode & 0x0f000000;
+    rd = (instruction & 0x0f000000) >> 6*4;
     if (m) {
       if ((instruction & 0xf0ffff00) == 0x00004000) {
         pc += 4;
@@ -158,7 +159,7 @@ function step() {
            | ((instruction & 0x00007f00) << 1*4);
       }
     } else {
-      rn = opcode & 0xf0000000;
+      rn = (instruction & 0xf0000000) >> 7*4;
     }
     break;
   case 1:
@@ -172,7 +173,7 @@ function step() {
            | ((instruction & 0x00007f00) << 2*4);
       }
     } else {
-      rn = opcode & 0x0f000000;
+      rn = (instruction & 0x0f000000) >> 6*4;
     }
     break;
   case 0:

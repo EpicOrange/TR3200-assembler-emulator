@@ -150,7 +150,7 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
       }
       break;
     case 2:
-      instruction = instruction | (regNames[args[2]] << 7*4); // rd: 0x *0 00 00 00
+      instruction = instruction | (regNames[args[2]] << 6*4); // rd: 0x 0* 00 00 00
       if (typeof args[1] == "number") { // if rn is a number value
         if (Math.abs(value) >= 0x40000) {
           instruction = instruction | 0x0000C000;
