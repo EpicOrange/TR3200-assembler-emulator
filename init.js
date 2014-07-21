@@ -25,6 +25,6 @@ function init() {
   fore = colors[15];
   back = colors[0];
 
-  input.value = "MOV 0x3200 %r0 ; assemble me and run!";
+  input.value = "MOV 0x3200 %r0\nMOV %r0 %r1 ; assemble me and run!";
   boot();
 }
