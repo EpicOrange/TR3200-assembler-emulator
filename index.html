@@ -21,9 +21,14 @@
     <div id="container">
       <!-- for the TDA in the future -->
       <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
+      <h1>
+        TR3200 CPU <!-- will be fancier when I get bored -->
+      </h1>
       <div id="input-area">
         <textarea id="input"></textarea>
         <div id="rom-controls">
+          <input type="button" id="assemble" value="assemble into rom">
+          <br>
           <input type="button" id="parse" value="store into rom"> as 
           <select id="format">
             <option value="hex">Hexadecimal</option>
@@ -31,9 +36,7 @@
             <option value="bin2">Binary (big-endian)</option>
           </select>
           <br>
-          <input type="button" id="assemble" value="assemble, and store in rom">
-          <br>
-          <input type="button" id="write" value="write">
+          <input type="button" id="write" value="write" style="display: none">
           <input type="button" id="undo" value="undo">
         </div>
       </div>
@@ -113,15 +116,16 @@
               </tr>
             </thead>
             <tbody class="memoryButtonContainer"><tr><td colspan="2">
-              <input type="button" id="memoryTop" value="^" class="memoryButton">
+              <input type="button" id="memoryTop" value="" class="memoryButton">
             </td></tr></tbody>
             <tbody id="memory-body">
             </tbody>
             <tbody class="memoryButtonContainer"><tr><td colspan="2">
-              <input type="button" id="memoryBottom" value="V" class="memoryButton">
+              <input type="button" id="memoryBottom" value="" class="memoryButton">
             </td></tr></tbody>
           </table>
-          <input type="button" id="jump" value="Jump to address">: 0x<input type="text" id="jumpValue" size="6" maxlength="6">
+          <input type="button" id="jump" value="Jump to address">: 
+          0x<input type="text" id="jumpValue" size="6" maxlength="6">
         </div>
       </div>
     </div>
