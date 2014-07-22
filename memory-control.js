@@ -13,12 +13,11 @@ function updateMemoryTable(newAddress) {
   if (typeof newAddress != "undefined") {
     if (typeof newAddress == "string")
       newAddress = parseInt(newAddress, 16);
-    newAddress -= (newAddress % 4); // align to memory
-    if (isNaN(newAddress))
+    if (isNaN(parseInt(newAddress, 16)))
       return error("tried to view memory at a non-numerical address");
     if (newAddress < 0x000000 || newAddress >= 0xffffff)
       return error("tried to view memory at an out-of-bounds address: " + hexToStr(newAddress));
-    currentPos = newAddress;
+    currentPos = newAddress - (newAddress % 4); // align to memory
   }
   if (currentPos < 0)
     currentPos = 0;
@@ -37,7 +36,7 @@ function updateMemoryTable(newAddress) {
     var address = document.getElementById("memory-address-" + i);
     var value = document.getElementById("memory-value-" + i);
     var assignedAddress = currentPos + (i*4);
-    address.innerHTML = hexToStr(assignedAddress, tableSize);
+    address.innerHTML = hexToStr(assignedAddress, 6);
     value.innerHTML = hexToStr(getMemory(assignedAddress, true));
   }
 }
