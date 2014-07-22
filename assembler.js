@@ -1,151 +1,89 @@
-var opcodes = {
-  "SLEEP": 0x00,
-  "RET": 0x01,
-  "RFI": 0x02,
-  "XCHGB": 0x20,
-  "XCHGW": 0x21,
-  "GETPC": 0x22,
-  "POP": 0x23,
-  "PUSH": 0x24,
-  "JMP": 0x25,
-  "CALL": 0x26,
-  "RJMP": 0x27,
-  "RCALL": 0x28,
-  "INT": 0x29,
-  "MOV": 0x40,
-  "SWP": 0x41,
-  "NOT": 0x42,
-  "SIGXB": 0x43,
-  "SIGXW": 0x44,
-  "LOAD": 0x45,
-  "LOADW": 0x46,
-  "LOADB": 0x47,
-  "STORE": 0x48,
-  "STOREW": 0x49,
-  "STOREB": 0x4A,
-  "IFEQ": 0x4B,
-  "IFNEQ": 0x4C,
-  "IFL": 0x4D,
-  "IFSL": 0x4E,
-  "IFLE": 0x4F,
-  "IFSLE": 0x50,
-  "IFBITS": 0x51,
-  "IFCLEAR": 0x52,
-  "AND": 0x80,
-  "OR": 0x81,
-  "XOR": 0x82,
-  "BITC": 0x83,
-  "ADD": 0x84,
-  "ADDC": 0x85,
-  "SUB": 0x86,
-  "SUBB": 0x87,
-  "RSB": 0x88,
-  "RSBB": 0x89,
-  "LLS": 0x8A,
-  "LRS": 0x8B,
-  "ARS": 0x8C,
-  "ROTL": 0x8D,
-  "ROTR": 0x8E,
-  "MUL": 0x8F,
-  "SMUL": 0x90,
-  "DIV": 0x91,
-  "SDIV": 0x92
-};
-var opcodes2 = { // instructions with duplicate names
-  "JMP": 0x53,
-  "CALL": 0x54,
-  "LOAD": 0x93,
-  "LOADW": 0x94,
-  "LOADB": 0x95,
-  "STORE": 0x96,
-  "STOREW": 0x97,
-  "STOREB": 0x98
-};
-var regNames = {
-  "%r0": 0,
-  "%r1": 1,
-  "%r2": 2,
-  "%r3": 3,
-  "%r4": 4,
-  "%r5": 5,
-  "%r6": 6,
-  "%r7": 7,
-  "%r8": 8,
-  "%r9": 9,
-  "%r10": 10,
-  "%y": 11,
-  "%r11": 11,
-  "%bp": 12,
-  "%r12": 12,
-  "%sp": 13,
-  "%r13": 13,
-  "%ia": 14,
-  "%r14": 14,
-  "%flags": 15,
-  "%r15": 15,
-  "%pc": 16,
-  "PC": 16
-};
-var regNames2 = {
-  0: "%r0",
-  1: "%r1",
-  2: "%r2",
-  3: "%r3",
-  4: "%r4",
-  5: "%r5",
-  6: "%r6",
-  7: "%r7",
-  8: "%r8",
-  9: "%r9",
-  10: "%r10",
-  11: "%y",
-  12: "%bp",
-  13: "%sp",
-  14: "%ia",
-  15: "%flags",
-  16: "%pc"
-};
-// todo: labels
+var labelRegex = /^[a-zA-Z]+:$/;
 function assemble(input) {
-  undoStorage = input; // store in undo
   var lines = input.trim().split("\n");
+  var currentAddress = 0x100000;
+  var argTable = [];
   var instructions = [];
+  var labels = {};
+  // parse all lines and store args as arrays in argTable[]
   for (var i = 0; i < lines.length; i++) {
-    lines[i] = lines[i].replace(/;.+$/, "").trim(); // get rid of comments
-    var args = lines[i].replace(/[\s,]+/g, ",").split(",");
-    var op = args[0].toUpperCase();
-    if (op == "NOP") {
-      instructions.push(0x00000040); // hard code NOP as MOV %r0 %r0
+    lines[i] = lines[i].replace(/;.+$/, "").trim(); // get rid of comments and extra whitespace
+    if (lines[i] == "") // line is empty
       continue;
-    } else if (!(op in opcodes)) 
-      return error("Unrecognized operation " + op + " on line " + i);
-    var instruction = opcodes[op];
-    var value = 0;
-    var arg_length = numArgs(instruction);
-    if (arg_length != (args.length - 1)) {
-      if ( !((op in opcodes2) && (args.length - 1 == numArgs(opcodes2[op]))) ) // line just means 'if the instruction has a valid duplicate in opcode2'
-        return error( op + " (opcode: " + hexToStr(opcodes[op], 2) + ") on line " + i + " requires " + 
-            arg_length + " argument" + (arg_length == 1 ? "" : "s")+ ". (given: " + (args.length - 1) + ")" );
-    }
-    for (var j = 1; j < args.length; j++) {
-      if (args[j] in regNames) { // do nothing
-      } else if (j == 1) {
-        args[j] = parseInt(args[j]) >>> 0; // turn into a unsigned 32-bit int
-        if (typeof args[j] != "number") {
-          return error("Argument 1 on line " + i + " is not a register name or a 32-bit signed integer!");
-        }
-        value = (args[1] >> 31) ? ~args[1] + 1 : args[1]; // two's complement to number
-      } else {
-        return error("Argument " + j + " on line " + i + " is not a register name!");
+    else if (lines[i].match(labelRegex)) { // line is a label
+      var name = lines[i].match(/^[a-zA-Z]+/);
+      if (name in labels) 
+        return error("Duplicate label \"" + name + "\" on line " + (i+1));
+      labels[name] = currentAddress;
+      continue;
+    } else { // line is an instruction
+      var args = lines[i].replace(/[\s,]+/g, ",").split(","); // array of args, including the op
+      var op = args[0].toUpperCase(); // op name
+      if (op == "NOP") {
+        argTable.push(["MOV", "%r0", "%r0"]); // hard code NOP as MOV %r0 %r0
+        continue;
+      } else if (!(op in opcodes)) 
+        return error("Unrecognized operation " + op + " on line " + (i+1));
+      var instruction = opcodes[op];
+      var arg_length = numArgs(instruction); // the number of args the instruction is supposed to have
+      if (arg_length != (args.length - 1)) {
+        // this next line means 'if the instruction has another opcode in opcodes[2], and has the right # of args for that'
+        if ( !((op in d_opcodes) && (args.length - 1 == numArgs(d_opcodes[op]))) )
+          return error( op + " (opcode: " + hexToStr(opcodes[op], 2) + ") on line " + (i+1) + " requires " + 
+              arg_length + " argument" + (arg_length == 1 ? "" : "s")+ ". (given: " + (args.length - 1) + ")" );
       }
+
+      // modify args: "0x10" => 16
+      var next_dword = false;
+      for (var j = 1; j <= arg_length; j++) {
+        // there's a better way to structure this, but this is more readable. i think.
+        // actually i'm just too lazy to structure this right
+        if (args[j] in regNames) { // do nothing; args[j] is a register name which is valid
+        } else if (j == 1 && args[1].match(/^[a-zA-Z]+$/)) { // also do nothing; args[1] is a label
+        } else if (j == 1) {
+          if (typeof parseInt(args[1]) == "number") { // args[1] is an immediate value
+            args[1] = parseInt(args[1]) >>> 0; // turn into a unsigned 32-bit int
+
+            // this part of the code just checks if the value should be put in the next dword
+            if (args[1] > 0xffffffff)
+              return error("Argument 1 on line " + (i+1) + " cannot fit into a dword (value: " + hexToStr(args[1], 1) + ")");
+            var absvalue = (args[1] >> 31) ? ~args[1] + 1 : args[1]; // absolute value of dword
+            var limit;
+            if (arg_length == 3) limit = 0x4000;
+            else if (arg_length == 2) limit = 0x40000;
+            else if (arg_length == 1) limit = 0x400000;
+            if (absvalue >= limit) {
+              currentAddress += 4;
+              next_dword = true;
+            }
+          } else
+            return error("Argument 1 on line " + (i+1) + " is not a register name, label, or 32-bit signed integer!");
+        } else {
+          return error("Argument " + j + " on line " + (i+1) + " is not a register name!");
+        }
+      }
+      args[4] = arg_length;
+      args[5] = next_dword;
+      argTable.push(args);
+      currentAddress += 4;
     }
-    switch (args.length - 1) {
+  }
+
+  // now go through argTable[] and turn them into dwords to store in instructions[]
+  for (var i = 0; i < argTable.length; i++) { // i is line value. should probably do a foreach loop though
+    var args = argTable[i]; // [opcode, rn, rd/rs, rd, # args, push value as dword]
+    var instruction = opcodes[args[0].toUpperCase()];
+
+     // reason we check later for labels: when reading instructions, it's possible the labels aren't parsed yet
+    if (args.length != 0 && args[1] in labels)
+      args[1] = labels[args[1]];
+
+    switch (args[4]) {
     case 3:
       instruction = instruction | (regNames[args[2]] << 7*4); // rs: 0x *0 00 00 00
       instruction = instruction | (regNames[args[3]] << 6*4); // rd: 0x 0* 00 00 00
       if (typeof args[1] == "number") { // if rn is a number value
-        if (Math.abs(value) >= 0x4000) {
-          // todo add some checking for if the value is greater than 0xffffffff
+        if (args[5]) {
           instruction = instruction | 0x0000C000;
           instructions.push(instruction);
           instructions.push(args[1]);
@@ -163,7 +101,7 @@ function assemble(input) {
     case 2:
       instruction = instruction | (regNames[args[2]] << 6*4); // rd: 0x 0* 00 00 00
       if (typeof args[1] == "number") { // if rn is a number value
-        if (Math.abs(value) >= 0x40000) {
+        if (args[5]) {
           instruction = instruction | 0x0000C000;
           instructions.push(instruction);
           instructions.push(args[1]);
@@ -181,7 +119,7 @@ function assemble(input) {
       break;
     case 1:
       if (typeof args[1] == "number") { // if rn is a number value
-        if (Math.abs(value) >= 0x400000) {
+        if (args[5]) {
           instruction = instruction | 0x0000C000;
           instructions.push(instruction);
           instructions.push(args[1]);
@@ -201,13 +139,18 @@ function assemble(input) {
       instructions.push(instruction);
       break;
     default:
-      return error("Too many arguments on line " + i);
+      return error("Too many arguments on line " + (i+1)); // should never happen.
     }
   }
+  undoStorage = input; // no errors, store in undo
+
   // print all instructions to console. may change later for copy paste powers
   for (var i = 0; i < instructions.length; i++) {
-    console.log((i*4) + ": " + hexToStr(instructions[i]));
+    console.log(hexToStr(0x100000 + i*4, 6) + ": " + hexToStr(instructions[i]));
   }
+  
+  // clear memory
+  memory = Array(mem_size_);
 
   // load assembled code into the rom memory
   if (instructions.length > 0x7fff)

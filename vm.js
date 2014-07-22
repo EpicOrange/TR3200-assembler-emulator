@@ -1,5 +1,5 @@
 var mem_size_ = 1179647; // bytes in 0x000000 to 0x11ffff
-var memory; // all the memory. all of it
+var memory = Array(mem_size_); // all the memory. all of it
 /*
 v. 0.4h
 
@@ -58,7 +58,7 @@ function setMemory(address, value, setRom) {
   memory[address+3] = (value >> 6*4) & 0x000000ff;
 
   // update the user's table if the address is within bounds
-  if (address >= currentPos && address < currentPos + 24) {
+  if (address >= currentPos && address < currentPos + (tableSize*4)) {
     updateMemoryTable();
   }
 }
@@ -79,34 +79,26 @@ function setRegister(register, value) {
     index = regNames[register];
   }
   setMemory(0x11ff00 + index*4, value);
-  if (index == 16)
-    document.getElementById("%pc").innerHTML = hexToStr(value, 6);
-  else
-    document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
+  document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
 }
 
-function incPC(value) {
-  if (typeof value == "undefined")
-    value = 4;
-  setRegister("%pc", getRegister("%pc") + value);
-}
+var pc;
 
 function boot() {
-  // clear memory
-  memory = Array(mem_size_);
-
   // clear registers
-  for (var i = 0; i < 17; i++) {
+  for (var i = 0; i < 16; i++) {
     setRegister(i, 0);
   }
 
   // temporary since no boot config code to run
   // you could say this is the boot code
-  setRegister("%pc", 0x100000);
+  pc = 0x100000;
   setRegister("%sp", 0x01fffc);
 
   asleep = false;
+  document.getElementById("%pc").innerHTML = hexToStr(pc, 6);
   document.getElementById("currentInstruction").innerHTML = "N/A";
+  document.getElementById("currentInstructionText").innerHTML = "???";
 }
 
 var asleep = false; // temporary test thingy
@@ -118,98 +110,104 @@ function sleep() { // temporary test function
 }
 
 function execute(opcode, params, m, rn, rs, rd) {
-    var rnValue;
-    if (typeof rn != "undefined")
-      rnValue = (m ? rn : getRegister(rn)) >>> 0;
-    switch (opcode) {
-    case 0x0: // SLEEP
-      sleep();
-      break;
-    case 0x23: // POP
-      if (m)
-        warning("m bit set while executing POP");
-      var address = getRegister("%sp") + 4;
-      setRegister(rn, getMemory(address));
-      setRegister("%sp", address);
-      break;
-    case 0x24: // PUSH
-      if (m)
-        warning("m bit set while executing PUSH");
-      var address = getRegister("%sp");
-      setMemory(address, rnValue);
-      setRegister("%sp", address - 4);
-      break;
-    case 0x25: // JMP
-      setRegister("%pc", rnValue & 0xfffffffc);
-      break;
-    case 0x26: // CALL
-      setRegister("%pc", rnValue & 0xfffffffc);
-      setMemory(address, rnValue);
-      setRegister("%sp", address - 4);
-      break;
-    case 0x27: // RJMP
-      incPC(rnValue & 0xfffffffc);
-      break;
-    case 0x28: // RCALL
-      incPC(rnValue & 0xfffffffc);
-      setMemory(address, rnValue);
-      setRegister("%sp", address - 4);
-      break;
-    case 0x40: // MOV
-      setRegister(rd, rnValue);
-      break;
-    case 0x41: // SWP
-      if (m)
-        warning("m bit set while executing SWP");
-      var temp = getRegister(rd);
-      setRegister(rd, rnValue);
-      setRegister(rn, temp);
-      break;
-    case 0x42: // NOT
-      setRegister(rd, ~rnValue);
-      break;
-    case 0x45: // LOAD
-      setRegister(rd, getMemory(rnValue));
-      break;
-    case 0x48: // STORE
-      setMemory(rnValue, getRegister(rd));
-      break;
-    case 0x4b: // IFEQ
-      if (rnValue != getRegister(rd))
-        incPC();
-    case 0x4c: // INEQ
-      if (rnValue == getRegister(rd))
-        incPC();
-      break;
-    case 0x53: // JMP
-      setRegister("%pc", (rnValue + getRegister(rd)) & 0xfffffffc);
-      break;
-    case 0x54: // CALL
-      setRegister("%pc", (rnValue + getRegister(rd)) & 0xfffffffc);
-      setMemory(address, rnValue);
-      setRegister("%sp", address - 4);
-      break;
-    case 0x84: // ADD
-      var value = getRegister(rs) + rnValue;
-      //if (value > 0xffffffff)
-      // todo: learn carry bit and overflow bit logic from here:
-      // http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
-      
-      setRegister(rd, value);
-      break;
-    case 0x86: // SUB
-      var value = getRegister(rs) - rnValue;
-      //see ADD
-      
-      setRegister(rd, value);
-      break;
-    default:
-      console.log("unimplemented opcode: 0x" + opcode.toString(16));
-    }
+  // not done
+  var rnValue;
+  if (typeof rn != "undefined")
+    rnValue = (m ? rn : getRegister(rn)) >>> 0;
+  switch (opcode) {
+  case 0x0: // SLEEP
+    sleep();
+    break;
+  case 0x23: // POP
+    if (m)
+      warning("m bit set while executing POP");
+    var address = getRegister("%sp") + 4;
+    setRegister(rn, getMemory(address));
+    setRegister("%sp", address);
+    break;
+  case 0x24: // PUSH
+    if (m)
+      warning("m bit set while executing PUSH");
+    var address = getRegister("%sp");
+    setMemory(address, rnValue);
+    setRegister("%sp", address - 4);
+    break;
+  case 0x25: // JMP
+    pc = rnValue & 0xfffffffc;
+    pc -= 4; // don't advance PC
+    break;
+  case 0x26: // CALL
+    pc = rnValue & 0xfffffffc;
+    setMemory(address, rnValue);
+    setRegister("%sp", address - 4);
+    pc -= 4;
+    break;
+  case 0x27: // RJMP
+    pc += (rnValue & 0xfffffffc);
+    pc -= 4;
+    break;
+  case 0x28: // RCALL
+    pc += (rnValue & 0xfffffffc);
+    setMemory(address, rnValue);
+    setRegister("%sp", address - 4);
+    pc -= 4;
+    break;
+  case 0x40: // MOV
+    setRegister(rd, rnValue);
+    break;
+  case 0x41: // SWP
+    if (m)
+      warning("m bit set while executing SWP");
+    var temp = getRegister(rd);
+    setRegister(rd, rnValue);
+    setRegister(rn, temp);
+    break;
+  case 0x42: // NOT
+    setRegister(rd, ~rnValue);
+    break;
+  case 0x45: // LOAD
+    setRegister(rd, getMemory(rnValue));
+    break;
+  case 0x48: // STORE
+    setMemory(rnValue, getRegister(rd));
+    break;
+  case 0x4b: // IFEQ
+    if (rnValue != getRegister(rd))
+      pc += 4;
+    break;
+  case 0x4c: // INEQ
+    if (rnValue == getRegister(rd))
+      pc += 4;
+    break;
+  case 0x53: // JMP
+    pc = (rnValue + getRegister(rd)) & 0xfffffffc;
+    break;
+  case 0x54: // CALL
+    pc = (rnValue + getRegister(rd)) & 0xfffffffc;
+    setMemory(address, rnValue);
+    setRegister("%sp", address - 4);
+    break;
+  case 0x84: // ADD
+    var value = getRegister(rs) + rnValue;
+    //if (value > 0xffffffff)
+    // todo: learn carry bit and overflow bit logic from here:
+    // http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
+    
+    setRegister(rd, value);
+    break;
+  case 0x86: // SUB
+    var value = getRegister(rs) - rnValue;
+    //see ADD
+    
+    setRegister(rd, value);
+    break;
+  default:
+    console.log("unimplemented opcode: 0x" + opcode.toString(16));
+  }
 }
 
 function step() {
-  var instruction = getMemory(getRegister("%pc")); // reminder: instructions are in little-endian
+  var instruction = getMemory(pc); // reminder: instructions are in little-endian
   var opcode = instruction & 0xff;
   var parameters = numArgs(opcode); // number of parameters
   var m = (instruction & 0x00008000) >> 15;
@@ -217,7 +215,7 @@ function step() {
 
   // update the table
   // todo: also show the assembly code version, e.g. 0xd0018040 => MOV 0x00000010 %sp
-  document.getElementById("%pc").innerHTML = hexToStr(getRegister("%pc"), 6);
+  document.getElementById("%pc").innerHTML = hexToStr(pc, 6);
   document.getElementById("currentInstruction").innerHTML = hexToStr(instruction);
 
   // this entire switch is for extracting rn, rs, and rd from the instruction.
@@ -228,8 +226,8 @@ function step() {
     rd = (instruction & 0x0f000000) >> 6*4;
     if (m) {
       if ((instruction & 0x00ff7f00) == 0x00004000) {
-        incPC();
-        rn = getMemory(getRegister("%pc"));
+        pc += 4;
+        rn = getMemory(pc);
       } else {
         rn = ((instruction & 0x00ff0000) >> 4*4)
            | ((instruction & 0x00007f00) >> 0*4);
@@ -242,8 +240,8 @@ function step() {
     rd = (instruction & 0x0f000000) >> 6*4;
     if (m) {
       if ((instruction & 0xf0ff7f00) == 0x00004000) {
-        incPC();
-        rn = getMemory(getRegister("%pc"));
+        pc += 4;
+        rn = getMemory(pc);
       } else {
         rn = ((instruction & 0xf0000000) >> 7*4)
            | ((instruction & 0x00ff0000) >> 3*4)
@@ -256,8 +254,8 @@ function step() {
   case 1:
     if (m) {
       if ((instruction & 0xffff7f00) == 0x00004000) {
-        incPC();
-        rn = getMemory(getRegister("%pc"));
+        pc += 4;
+        rn = getMemory(pc);
       } else {
         rn = ((instruction & 0xff000000) >> 6*4)
            | ((instruction & 0x00ff0000) >> 2*4)
@@ -271,21 +269,33 @@ function step() {
     break;
   }
 
+  var operation = "???"; // text form of the operation
+  if (opcode in opcodes2) {
+    operation = opcodes2[opcode];
+    if (typeof rn != "undefined")
+      operation += " " + (m ? hexToStr(rn) : regNames2[rn]);
+    if (typeof rs != "undefined")
+      operation += " " + regNames2[rs];
+    if (typeof rd != "undefined")
+      operation += " " + regNames2[rd];
+  }
+  document.getElementById("currentInstructionText").innerHTML = operation;
+
   // debug code
-  var debugText = "PC: " + hexToStr(getRegister("%pc"), 6) + "; read instruction " + hexToStr(instruction) + "\n\t";
-  debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
-  debugText += "m: " + (m ? "true; " : "false; ");
-  if (typeof rn != "undefined")
-    debugText += "rn: " + (m ? hexToStr(rn) : regNames2[rn]) + "; ";
-  if (typeof rs != "undefined")
-    debugText += "rs: " + regNames2[rs] + "; ";
-  if (typeof rd != "undefined")
-    debugText += "rd: " + regNames2[rd] + "; ";
-  console.log(debugText);
+  // var debugText = "PC: " + hexToStr(pc), 6) + "; read instruction " + hexToStr(instruction) + " (" + operation + ")\n\t";
+  // debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
+  // debugText += "m: " + (m ? "true; " : "false; ");
+  // if (typeof rn != "undefined")
+  //   debugText += "rn: " + (m ? hexToStr(rn) : regNames2[rn]) + "; ";
+  // if (typeof rs != "undefined")
+  //   debugText += "rs: " + regNames2[rs] + "; ";
+  // if (typeof rd != "undefined")
+  //   debugText += "rd: " + regNames2[rd] + "; ";
+  // console.log(debugText);
 
   // now to actually execute the code
   execute(opcode, parameters, m, rn, rs, rd);
-  incPC();
+  pc += 4;
 }
 
 function run() {

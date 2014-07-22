@@ -19,6 +19,8 @@ function init() {
   document.getElementById("jump").addEventListener("click", function() {updateMemoryTable(document.getElementById("jumpValue").value);}, false);
   document.getElementById("errorOK").addEventListener('click', clearError, false);
 
+  document.getElementById("jumpValue").value = "000000";
+
   // setup canvas
   viewX = document.getElementById("canvas").width / charX; // number of tiles X
   viewY = document.getElementById("canvas").height / charY; // and Y
@@ -29,10 +31,17 @@ function init() {
   canvas.fillStyle = "white";
   fore = colors[15];
   back = colors[0];
+;
 
-  document.getElementById("jumpValue").value = "000000";
-
-  var defaultInput = "MOV 0x1000 %r0; assemble me and run!";
+  var defaultInput = [
+    "MOV 0x1000000, %r0; assemble me and run!",
+    "label:",
+    "ADD 0x1000000 %r0 %r0 ; commas are optional",
+    "IFEQ 0x3000000, %r0",
+    "  JMP end",
+    "JMP label",
+    "end:"
+  ].join("\n");
   document.getElementById("input").value = defaultInput;
   undoStorage = defaultInput;
   boot();
