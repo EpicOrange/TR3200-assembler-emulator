@@ -4,6 +4,8 @@ body {
   color: #8f8;
   font-family: "Trebuchet MS";
   box-sizing: border-box;
+  -mox-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }
 
 div {
@@ -16,15 +18,21 @@ div#container {
   float: none;
 }
 
+div#input-area {
+  width: 320px;
+  font-size: 12px;
+}
+
 div#rom-controls {
   text-align: left;
   width: 320px;
   margin: 0;
+  margin-top: 8px;
   margin-left: 2px;
 }
 
-span#errorDisplay {
-  font-size: 12px;
+div#register-container {
+  clear: left;
 }
 
 h1 {
@@ -44,6 +52,8 @@ textarea, select, input {
   border-radius: 2px;
   color: #080;
   box-sizing: border-box;
+  -mox-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }
 
 textarea {
