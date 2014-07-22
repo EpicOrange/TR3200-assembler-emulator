@@ -1,6 +1,8 @@
 var mem_size_ = 1179647; // bytes in 0x000000 to 0x11ffff
 var memory = Array(mem_size_); // all the memory. all of it
 /*
+v. 0.4h
+
 Important addresses:
 0x000000-0x01ffff: initial ram
 0x000000-0x0fffff: maximum ram
@@ -12,39 +14,32 @@ Important addresses:
 
 */
 // table supresses warnings; table is true when it's the table fetching a value
-function getMemory(address, dword, table) {
+function getMemory(address, table) {
   if (address < 0x000000 || address > mem_size_)
     return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
-  if (dword && ((address % 4) != 0))
+  if ((address % 4) != 0)
     warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
-  if (!dword) {
-    if (typeof memory[address] == "undefined") {
-      if (!table)
-        warning("tried to get undefined ram byte at " + hexToStr(address, 6));
-      return 0x00;
-    }
-    return memory[address];
-  } else {
-    if ( typeof memory[address] == "undefined"
-        || typeof memory[address+1] == "undefined"
-        || typeof memory[address+2] == "undefined"
-        || typeof memory[address+3] == "undefined" ) {
-      if (!table)
-        warning("tried to get undefined ram dword at " + hexToStr(address, 6));
-      return 0x00000000;
-    }
-    var value = memory[address];
-    value = value | (memory[address+1] << 2*4);
-    value = value | (memory[address+2] << 4*4);
-    value = value | (memory[address+3] << 6*4);
-    return (value >>> 0); // this returns a little-endian dword
+
+  if ( typeof memory[address] == "undefined"
+      || typeof memory[address+1] == "undefined"
+      || typeof memory[address+2] == "undefined"
+      || typeof memory[address+3] == "undefined" ) {
+    if (!table)
+      warning("tried to get undefined ram dword at " + hexToStr(address, 6));
+    return 0x00000000;
   }
+  var value = memory[address];
+  value = value | (memory[address+1] << 2*4);
+  value = value | (memory[address+2] << 4*4);
+  value = value | (memory[address+3] << 6*4);
+  return (value >>> 0); // this returns a little-endian dword
 }
+
 // todo get and set rng and clock speed
-function setMemory(address, value, dword, setRom) {
+function setMemory(address, value, setRom) {
   if (address < 0x000000 || address > mem_size_)
     return error("tried to set ram at out-of-bounds address " + hexToStr(address, 6));
-  if (dword && ((address % 4) != 0))
+  if ((address % 4) != 0)
     warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
   if (!setRom && address >= 0x100000 && address <= 0x107fff)
     return error("tried to set address in rom: " + hexToStr(address, 6));
@@ -53,20 +48,14 @@ function setMemory(address, value, dword, setRom) {
         + " to address " + hexToStr(address, 6));
   if (typeof value == "string")
     value = parseInt(value);
-  if (!dword) {
-    if (value > 0xff)
-      return error("tried to set the byte at address " + hexToStr(address, 6)
-          + " to out-of-range value " + hexToStr(value));
-    memory[address] = value;
-  } else {
-    if (value > 0xffffffff)
-      return error("tried to set the dword at address " + hexToStr(address, 6)
-          + " to out-of-range value " + hexToStr(value));
-    memory[address+0] = (value >> 0*4) & 0x000000ff;
-    memory[address+1] = (value >> 2*4) & 0x000000ff;
-    memory[address+2] = (value >> 4*4) & 0x000000ff;
-    memory[address+3] = (value >> 6*4) & 0x000000ff;
-  }
+
+  if (value > 0xffffffff)
+    return error("tried to set the dword at address " + hexToStr(address, 6)
+        + " to out-of-range value " + hexToStr(value));
+  memory[address+0] = (value >> 0*4) & 0x000000ff;
+  memory[address+1] = (value >> 2*4) & 0x000000ff;
+  memory[address+2] = (value >> 4*4) & 0x000000ff;
+  memory[address+3] = (value >> 6*4) & 0x000000ff;
 
   // update the user's table if the address is within bounds
   if (address >= currentPos && address < currentPos + 24) {
@@ -80,7 +69,7 @@ function getRegister(register) {
       return error("Tried to get an invalid register: " + register);
     index = regNames[register];
   }
-  return getMemory(0x11ff00 + index, true);
+  return getMemory(0x11ff00 + index);
 }
 function setRegister(register, value) {
   var index = register;
@@ -89,7 +78,7 @@ function setRegister(register, value) {
       return error("Tried to get an invalid register: " + register);
     index = regNames[register];
   }
-  setMemory(0x11ff00 + index*4, value, true);
+  setMemory(0x11ff00 + index*4, value);
   document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
 }
 
@@ -113,8 +102,11 @@ function sleep() { // temporary test function
   }
 }
 
-function execute(opcode, params, m, rn, rs, rd) { // TODO make this not dependent on 'ram' variable
-    // only SLEEP (0x00) and MOV (0x40) implemented for testing purposes
+function execute(opcode, params, m, rn, rs, rd) {
+  // note: push, pop, jmp, call, rjmp, and rcall all don't work since i don't know where pc is stored in memory
+    var rnValue;
+    if (typeof rn != "undefined")
+      rnValue = (m ? rn : getRegister(rn)) >>> 0;
     switch (opcode) {
     case 0x0: // SLEEP
       sleep();
@@ -123,18 +115,51 @@ function execute(opcode, params, m, rn, rs, rd) { // TODO make this not dependen
       if (m)
         warning("m bit set while executing POP");
       var address = getRegister("%sp") + 4;
-      setRegister(rn, getMemory(address, true));
+      setRegister(rn, getMemory(address));
       setRegister("%sp", address);
       break;
     case 0x24: // PUSH
       if (m)
         warning("m bit set while executing PUSH");
       var address = getRegister("%sp");
-      setMemory(address, getRegister(rn), true);
+      setMemory(address, rnValue);
+      setRegister("%sp", address - 4);
+      break;
+    case 0x25: // JMP
+      pc = rnValue & 0xfffffffc;
+      break;
+    case 0x26: // CALL
+      pc = rnValue & 0xfffffffc;
+      setMemory(address, rnValue);
+      setRegister("%sp", address - 4);
+      break;
+    case 0x27: // RJMP
+      pc += rnValue & 0xfffffffc;
+      break;
+    case 0x28: // RCALL
+      pc += rnValue & 0xfffffffc;
+      setMemory(address, rnValue);
       setRegister("%sp", address - 4);
       break;
     case 0x40: // MOV
-      setRegister(rd, (m ? rn : getRegister(rn)));
+      setRegister(rd, rnValue);
+      break;
+    case 0x41: // SWP
+      if (m)
+        warning("m bit set while executing SWP");
+      var temp = getRegister(rd);
+      setRegister(rd, rnValue);
+      setRegister(rn, temp);
+      break;
+    case 0x42: // NOT
+      setRegister(rd, ~rnValue);
+      break;
+    case 0x4b: // IFEQ
+      if (rnValue != getRegister(rd))
+        pc += 4; // skip over the next instruction
+      break;
+    case 0x84: // ADD
+      setRegister(rd, getRegister(rs) + rnValue);
       break;
     default:
       console.log("unimplemented opcode: 0x" + opcode.toString(16));
@@ -162,7 +187,7 @@ function step() {
     if (m) {
       if ((instruction & 0x00ff7f00) == 0x00004000) {
         pc += 4;
-        rn = getMemory(pc, true);
+        rn = getMemory(pc);
       } else {
         rn = ((instruction & 0x00ff0000) >> 4*4)
            | ((instruction & 0x00007f00) >> 0*4);
@@ -176,7 +201,7 @@ function step() {
     if (m) {
       if ((instruction & 0xf0ff7f00) == 0x00004000) {
         pc += 4;
-        rn = getMemory(pc, true);
+        rn = getMemory(pc);
       } else {
         rn = ((instruction & 0xf0000000) >> 7*4)
            | ((instruction & 0x00ff0000) >> 3*4)
@@ -190,7 +215,7 @@ function step() {
     if (m) {
       if ((instruction & 0xffff7f00) == 0x00004000) {
         pc += 4;
-        rn = getMemory(pc, true);
+        rn = getMemory(pc);
       } else {
         rn = ((instruction & 0xff000000) >> 6*4)
            | ((instruction & 0x00ff0000) >> 2*4)
@@ -209,7 +234,7 @@ function step() {
   debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
   debugText += "m: " + (m ? "true; " : "false; ");
   if (typeof rn != "undefined")
-    debugText += "rn: " + (regNames2[rn] || hexToStr(rn)) + "; ";
+    debugText += "rn: " + (m ? hexToStr(rn) : regNames2[rn]) + "; ";
   if (typeof rs != "undefined")
     debugText += "rs: " + regNames2[rs] + "; ";
   if (typeof rd != "undefined")
@@ -271,10 +296,6 @@ XCHGW  0x21 Exchange Words  (M = 0)                                  3
 GETPC  0x22 Return %pc value        Rn = %pc+4 (M = 0)               3
 POP    0x23 Pops from the stack     %sp +=4 ; Rn = [%sp] (M = 0)     3
 PUSH   0x24 Push to the stack       [%sp] = Rn ; %sp -=4 (M = 0)     3
-JMP    0x25 Absolute Jump           %pc = Rn & 0xFFFFFFFC            3
-CALL   0x26 Absolute Jump& Push %pc %pc = Rn & 0xFFFFFFFC            4
-RJMP   0x27 Relative Jump           %pc = (%pc + Rn) & 0xFFFFFFFC    3
-RCALL  0x28 Relative Jump& Push %pc %pc = (&pc + Rn) & 0xFFFFFFFC    4
 INT    0x29 Software Interrupt                                       6
 
 2 parameters:
