@@ -31,7 +31,7 @@
       <div id="input-area">
         <textarea id="input"></textarea>
         <br>
-        <span id="errorDisplay" style="display: none"></span>
+        <pre id="errorDisplay" style="display: none"></pre>
         <br>
         <input type="button" id="errorOK" value="OK" style="display: none">
       </div>
@@ -40,9 +40,12 @@
         <br>
         <input type="button" id="parse" value="store into rom"> as 
         <select id="format">
-          <option value="hex">Hexadecimal</option>
-          <option value="bin1">Binary (little-endian)</option>
-          <option value="bin2">Binary (big-endian)</option>
+          <option value="hex">Hex</option>
+          <option value="bin">Binary</option>
+        </select>
+        <select id="endianness">
+          <option value="0">little-endian</option>
+          <option value="1">big-endian</option>
         </select>
         <br>
         <input type="button" id="write" value="write" style="display: none">
@@ -146,5 +149,12 @@
 <!-- notes to self:
   To copy all of master branch to gh-pages:
   git push origin master:gh-pages
-
+0x0000c040
+0x01000000
+0x0000c084
+0x01000000
+0x0000c04b
+0x03000000
+0x20009025
+0x08009025
 -->

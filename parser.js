@@ -1,8 +1,8 @@
-function parseAsHex(input, code) {
+function parseAsHex(input, code, bigendian) {
   var str = input.replace(/0x/g, ""); // remove all the 0x from 0xffffffff
   if (!str.match(/^[\s0-9a-f]+$/gi)) // make sure only hex
     return error("input is not in hexadecimal");
-  str = str.trim().replace(/\s+/, " ") + " "; // replace all whitespace with one space
+  str = str.trim().replace(/\s+/g, " ") + " "; // replace all whitespace with one space
   if ( !(str.match(/^([0-9a-fA-F]{8} )+$/)) // bytes
       && !(str.match(/^([0-9a-fA-F]{32} )+$/)) ) { // dwords
     return error("input is not in one of the following formats:\n\
@@ -10,6 +10,17 @@ function parseAsHex(input, code) {
         ffffffff ffffffff (dwords)"); // reason is to catch mistakes e.g. ffffffff fffffff
   }
   str = str.replace(/\s+/g, "").match(/.{8}/g); // group as dword strings (also cuts off any remainder)
+
+  if (bigendian) { // have to convert to little-endian
+    str.forEach(function(val, i, array) {
+      var littleendian = "";
+      littleendian += val.substr(6, 2);
+      littleendian += val.substr(4, 2);
+      littleendian += val.substr(2, 2);
+      littleendian += val.substr(0, 2);
+      array[i] = littleendian;
+    });
+  }
 
   for (var i = 0; i < str.length; i++) {
     code[i] = parseInt(str[i], 16);
@@ -50,9 +61,9 @@ function parse(input) {
   var instructions = [];
   var ret;
   if (document.getElementById("format").selectedIndex == 0) {
-    ret = parseAsHex(input, instructions);
+    ret = parseAsHex(input, instructions, document.getElementById("endianness").selectedIndex);
   } else {
-    ret = parseAsBin(input, instructions, document.getElementById("format").selectedIndex == 2);
+    ret = parseAsBin(input, instructions, document.getElementById("endianness").selectedIndex);
   }
   if (ret == "error") return;
 
