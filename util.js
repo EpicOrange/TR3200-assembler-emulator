@@ -10,6 +10,13 @@ function padZero(txt, num) {
 }
 function error(note) {
   console.log("ERROR: " + note);
+  document.getElementById("errorDisplay").innerHTML = note;
+  document.getElementById("errorDisplay").style.display = "inline-block";
+  document.getElementById("errorOK").style.display = "inline-block";
+}
+function clearError() {
+  document.getElementById("errorDisplay").style.display = "none";
+  document.getElementById("errorOK").style.display = "none";
 }
 function warning(note) {
   console.log("WARNING: " + note);

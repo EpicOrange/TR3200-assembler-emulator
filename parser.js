@@ -67,6 +67,9 @@ function parse(input) {
   // put a sleep instruction in case the rom already had stuff in it
   setMemory(0x100000 + instructions.length*4, 0x00000000, true);
 
+  // clear error without user having to press OK
+  clearError();
+
   // restart the VM
   boot();
 }

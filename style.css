@@ -23,6 +23,10 @@ div#rom-controls {
   margin-left: 2px;
 }
 
+span#errorDisplay {
+  font-size: 12px;
+}
+
 h1 {
   font-size: 48px;
   margin: 0;

@@ -1,5 +1,9 @@
 <!DOCTYPE HTML>
 <html>
+<!-- todo: 
+- display flag values
+- display instructions in assembly code format
+-->
   <head>
   	<title>TR3200 Emulator</title>
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -26,19 +30,23 @@
       </h1>
       <div id="input-area">
         <textarea id="input"></textarea>
-        <div id="rom-controls">
-          <input type="button" id="assemble" value="assemble into rom">
-          <br>
-          <input type="button" id="parse" value="store into rom"> as 
-          <select id="format">
-            <option value="hex">Hexadecimal</option>
-            <option value="bin1">Binary (little-endian)</option>
-            <option value="bin2">Binary (big-endian)</option>
-          </select>
-          <br>
-          <input type="button" id="write" value="write" style="display: none">
-          <input type="button" id="undo" value="undo">
-        </div>
+        <br>
+        <span id="errorDisplay" style="display: none"></span>
+        <br>
+        <input type="button" id="errorOK" value="OK" style="display: none">
+      </div>
+      <div id="rom-controls">
+        <input type="button" id="assemble" value="assemble into rom">
+        <br>
+        <input type="button" id="parse" value="store into rom"> as 
+        <select id="format">
+          <option value="hex">Hexadecimal</option>
+          <option value="bin1">Binary (little-endian)</option>
+          <option value="bin2">Binary (big-endian)</option>
+        </select>
+        <br>
+        <input type="button" id="write" value="write" style="display: none">
+        <input type="button" id="undo" value="undo">
       </div>
       <br>
       <div id="register-container">
@@ -46,7 +54,7 @@
           <thead>
             <tr>
               <th>PC:</th>
-              <th><span id="pc"></span></th>
+              <th><span id="%pc"></span></th>
               <th>Execute</th>
               <th><span id="currentInstruction">N/A</span></th>
             </tr>

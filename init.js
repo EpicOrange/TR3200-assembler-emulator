@@ -17,6 +17,7 @@ function init() {
   document.getElementById("memoryTop").addEventListener("click", function() {updateMemoryTable(currentPos - 4);}, false);
   document.getElementById("memoryBottom").addEventListener("click", function() {updateMemoryTable(currentPos + 4);}, false);
   document.getElementById("jump").addEventListener("click", function() {updateMemoryTable(document.getElementById("jumpValue").value);}, false);
+  document.getElementById("errorOK").addEventListener('click', clearError, false);
 
   // setup canvas
   viewX = document.getElementById("canvas").width / charX; // number of tiles X
@@ -31,7 +32,7 @@ function init() {
 
   document.getElementById("jumpValue").value = "000000";
 
-  var defaultInput = "IFEQ 0x123 %r0\nMOV 0x3200 %r0\nADD 0x6400 %r0 %r0\nMOV %r0 %r1; assemble me and run!";
+  var defaultInput = "MOV 0x1000 %r0; assemble me and run!";
   document.getElementById("input").value = defaultInput;
   undoStorage = defaultInput;
   boot();

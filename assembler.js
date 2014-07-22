@@ -31,8 +31,6 @@ var opcodes = {
   "IFSLE": 0x50,
   "IFBITS": 0x51,
   "IFCLEAR": 0x52,
-  "JMP": 0x53,
-  "CALL": 0x54,
   "AND": 0x80,
   "OR": 0x81,
   "XOR": 0x82,
@@ -51,7 +49,11 @@ var opcodes = {
   "MUL": 0x8F,
   "SMUL": 0x90,
   "DIV": 0x91,
-  "SDIV": 0x92,
+  "SDIV": 0x92
+};
+var opcodes2 = { // instructions with duplicate names
+  "JMP": 0x53,
+  "CALL": 0x54,
   "LOAD": 0x93,
   "LOADW": 0x94,
   "LOADB": 0x95,
@@ -80,7 +82,9 @@ var regNames = {
   "%ia": 14,
   "%r14": 14,
   "%flags": 15,
-  "%r15": 15
+  "%r15": 15,
+  "%pc": 16,
+  "PC": 16
 };
 var regNames2 = {
   0: "%r0",
@@ -98,10 +102,11 @@ var regNames2 = {
   12: "%bp",
   13: "%sp",
   14: "%ia",
-  15: "%flags"
+  15: "%flags",
+  16: "%pc"
 };
-
-function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructions by themselves
+// todo: labels
+function assemble(input) {
   undoStorage = input; // store in undo
   var lines = input.trim().split("\n");
   var instructions = [];
@@ -109,13 +114,18 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
     lines[i] = lines[i].replace(/;.+$/, "").trim(); // get rid of comments
     var args = lines[i].replace(/[\s,]+/g, ",").split(",");
     var op = args[0].toUpperCase();
-    if (!(op in opcodes)) 
+    if (op == "NOP") {
+      instructions.push(0x00000040); // hard code NOP as MOV %r0 %r0
+      continue;
+    } else if (!(op in opcodes)) 
       return error("Unrecognized operation " + op + " on line " + i);
     var instruction = opcodes[op];
     var value = 0;
-    if (numArgs(instruction) != (args.length - 1)) {
-      return error( op + " (opcode: " + opcodes[op] + ") on line " + i + " requires " + 
-          numArgs(instruction) + " arguments. (given: " + (args.length - 1) + ")" );
+    var arg_length = numArgs(instruction);
+    if (arg_length != (args.length - 1)) {
+      if ( !((op in opcodes2) && (args.length - 1 == numArgs(opcodes2[op]))) ) // line just means 'if the instruction has a valid duplicate in opcode2'
+        return error( op + " (opcode: " + hexToStr(opcodes[op], 2) + ") on line " + i + " requires " + 
+            arg_length + " argument" + (arg_length == 1 ? "" : "s")+ ". (given: " + (args.length - 1) + ")" );
     }
     for (var j = 1; j < args.length; j++) {
       if (args[j] in regNames) { // do nothing
@@ -207,6 +217,9 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
   }
   // put a sleep instruction in case the rom already had stuff in it
   setMemory(0x100000 + instructions.length*4, 0x00000000, true);
+
+  // clear error without user having to press OK
+  clearError();
 
   // restart the VM
   boot();
