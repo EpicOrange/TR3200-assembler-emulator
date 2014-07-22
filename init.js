@@ -31,7 +31,7 @@ function init() {
 
   document.getElementById("jumpValue").value = "000000";
 
-  var defaultInput = "MOV 0x3200 %r0\nMOV %r0 %r1 ; assemble me and run!";
+  var defaultInput = "IFEQ 0x123 %r0\nMOV 0x3200 %r0\nADD 0x6400 %r0 %r0\nMOV %r0 %r1; assemble me and run!";
   document.getElementById("input").value = defaultInput;
   undoStorage = defaultInput;
   boot();

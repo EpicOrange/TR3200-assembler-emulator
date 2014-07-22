@@ -203,10 +203,10 @@ function assemble(input) { // also TODO: handle NOP, SLEEP, and RFI as instructi
   if (instructions.length > 0x7fff)
     return error("too many instructions(" + instructions.length + ", cannot fit into rom chip of 32 kib");
   for (var i = 0; i < instructions.length; i++) {
-    setMemory(0x100000 + i*4, instructions[i], true, true);
+    setMemory(0x100000 + i*4, instructions[i], true);
   }
   // put a sleep instruction in case the rom already had stuff in it
-  setMemory(0x100000 + instructions.length*4, 0x00000000, true, true);
+  setMemory(0x100000 + instructions.length*4, 0x00000000, true);
 
   // restart the VM
   boot();
