@@ -2,7 +2,6 @@
 <html>
 <!-- todo: 
 - display flag values
-- display instructions in assembly code format
 -->
   <head>
   	<title>TR3200 Emulator</title>
@@ -23,11 +22,14 @@
   </head>
   <body onload="init()">
     <div id="container">
-      <!-- for the TDA in the future -->
-      <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
       <h1>
-        TR3200 CPU <!-- will be fancier when I get bored -->
+        <i>TR3200 CPU</i> <!-- will be fancier when I get bored -->
       </h1>
+      <!-- for the TDA in the future -->
+      <div id="canvas-container" style="display: none">
+        <canvas id="canvas" width="640" height="480"></canvas>
+        <br>
+      </div>
       <div id="input-area">
         <textarea id="input"></textarea>
         <br>
@@ -51,9 +53,6 @@
         <input type="button" id="write" value="write" style="display: none">
         <input type="button" id="undo" value="undo">
       </div>
-      <br>
-      <br>
-      <br>
       <div id="register-container">
         <table id="registerView" width="500px">
           <thead>
