@@ -47,7 +47,7 @@ function assemble(input) {
             // this part of the code just checks if the value should be put in the next dword
             if (args[1] > 0xffffffff)
               return error("Argument 1 on line " + (i+1) + " cannot fit into a dword (value: " + hexToStr(args[1], 1) + ")");
-            var absvalue = (args[1] >> 31) ? ~args[1] + 1 : args[1]; // absolute value of dword
+            var absvalue = (args[1] >>> 31) ? ((-args[1]) >>> 0) : args[1]; // absolute value of dword
             var limit;
             if (arg_length == 3) limit = 0x4000;
             else if (arg_length == 2) limit = 0x40000;
@@ -88,8 +88,8 @@ function assemble(input) {
           instructions.push(instruction);
           instructions.push(args[1]);
         } else {
-          instruction = instruction | (args[1] & 0x00ff) << 4*4;  // 0x 00 ** 00 00
-          instruction = instruction | (args[1] & 0xff00) << 0*4;  // 0x 00 00 ** 00
+          instruction = instruction | ((args[1] & 0x00ff) << 4*4);  // 0x 00 ** 00 00
+          instruction = instruction | ((args[1] & 0xff00) << 0*4);  // 0x 00 00 ** 00
           instruction = instruction | 0x00008000;                 // set M bit
           instructions.push(instruction);
         }
@@ -106,9 +106,9 @@ function assemble(input) {
           instructions.push(instruction);
           instructions.push(args[1]);
         } else {
-          instruction = instruction | (args[1] & 0x00000f) << 7*4;  // 0x *0 00 00 00
-          instruction = instruction | (args[1] & 0x000ff0) << 3*4;  // 0x 00 ** 00 00
-          instruction = instruction | (args[1] & 0x0ff000) >> 1*4;  // 0x 00 00 ** 00
+          instruction = instruction | ((args[1] & 0x00000f) << 7*4);  // 0x *0 00 00 00
+          instruction = instruction | ((args[1] & 0x000ff0) << 3*4);  // 0x 00 ** 00 00
+          instruction = instruction | ((args[1] & 0x0ff000) >>> 1*4);  // 0x 00 00 ** 00
           instruction = instruction | 0x00008000;                   // set M bit
           instructions.push(instruction);
         }
@@ -124,9 +124,9 @@ function assemble(input) {
           instructions.push(instruction);
           instructions.push(args[1]);
         } else {
-          instruction = instruction | (args[1] & 0x0000ff) << 6*4;  // 0x ** 00 00 00
-          instruction = instruction | (args[1] & 0x00ff00) << 2*4;  // 0x 00 ** 00 00
-          instruction = instruction | (args[1] & 0xff0000) >> 2*4;  // 0x 00 00 ** 00
+          instruction = instruction | ((args[1] & 0x0000ff) << 6*4);  // 0x ** 00 00 00
+          instruction = instruction | ((args[1] & 0x00ff00) << 2*4);  // 0x 00 ** 00 00
+          instruction = instruction | ((args[1] & 0xff0000) >>> 2*4);  // 0x 00 00 ** 00
           instruction = instruction | 0x00008000;                   // set M bit
           instructions.push(instruction);
         }
@@ -154,7 +154,7 @@ function assemble(input) {
 
   // load assembled code into the rom memory
   if (instructions.length > 0x7fff)
-    return error("too many instructions(" + instructions.length + ", cannot fit into rom chip of 32 kib");
+    return error("too many instructions(" + instructions.length + "), cannot fit into rom chip of 32 KiB");
   for (var i = 0; i < instructions.length; i++) {
     setMemory(0x100000 + i*4, instructions[i], true);
   }

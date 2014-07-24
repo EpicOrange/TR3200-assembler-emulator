@@ -52,10 +52,10 @@ function setMemory(address, value, setRom) {
   if (value > 0xffffffff)
     return error("tried to set the dword at address " + hexToStr(address, 6)
         + " to out-of-range value " + hexToStr(value));
-  memory[address+0] = (value >> 0*4) & 0x000000ff;
-  memory[address+1] = (value >> 2*4) & 0x000000ff;
-  memory[address+2] = (value >> 4*4) & 0x000000ff;
-  memory[address+3] = (value >> 6*4) & 0x000000ff;
+  memory[address+0] = (value >>> 0*4) & 0x000000ff;
+  memory[address+1] = (value >>> 2*4) & 0x000000ff;
+  memory[address+2] = (value >>> 4*4) & 0x000000ff;
+  memory[address+3] = (value >>> 6*4) & 0x000000ff;
 
   // update the user's table if the address is within bounds
   if (address >= currentPos && address < currentPos + (tableSize*4)) {
@@ -99,6 +99,7 @@ function boot() {
   document.getElementById("%pc").innerHTML = hexToStr(pc, 6);
   document.getElementById("currentInstruction").innerHTML = "N/A";
   document.getElementById("currentInstructionText").innerHTML = "???";
+  updateMemoryTable();
 }
 
 var asleep = false; // temporary test thingy
@@ -207,10 +208,12 @@ function execute(opcode, params, m, rn, rs, rd) {
 }
 
 function step() {
+  if (asleep) // this is temporary, (hopefully)
+    return pause();
   var instruction = getMemory(pc); // reminder: instructions are in little-endian
   var opcode = instruction & 0xff;
   var parameters = numArgs(opcode); // number of parameters
-  var m = (instruction & 0x00008000) >> 15;
+  var m = (instruction & 0x00008000) >>> 15;
   var rn = undefined, rs = undefined, rd = undefined;
 
   // update the table
@@ -222,33 +225,33 @@ function step() {
   // there's probably a more compact and less readable way to do this
   switch (parameters) {
   case 3:
-    rs = (instruction & 0xf0000000) >> 7*4;
-    rd = (instruction & 0x0f000000) >> 6*4;
+    rs = (instruction & 0xf0000000) >>> 7*4;
+    rd = (instruction & 0x0f000000) >>> 6*4;
     if (m) {
       if ((instruction & 0x00ff7f00) == 0x00004000) {
         pc += 4;
         rn = getMemory(pc);
       } else {
-        rn = ((instruction & 0x00ff0000) >> 4*4)
-           | ((instruction & 0x00007f00) >> 0*4);
+        rn = ((instruction & 0x00ff0000) >>> 4*4)
+           | ((instruction & 0x00007f00) >>> 0*4);
       }
     } else {
-      rn = (instruction & 0x000f0000) >> 4*4;
+      rn = (instruction & 0x000f0000) >>> 4*4;
     }
     break;
   case 2:
-    rd = (instruction & 0x0f000000) >> 6*4;
+    rd = (instruction & 0x0f000000) >>> 6*4;
     if (m) {
       if ((instruction & 0xf0ff7f00) == 0x00004000) {
         pc += 4;
         rn = getMemory(pc);
       } else {
-        rn = ((instruction & 0xf0000000) >> 7*4)
-           | ((instruction & 0x00ff0000) >> 3*4)
+        rn = ((instruction & 0xf0000000) >>> 7*4)
+           | ((instruction & 0x00ff0000) >>> 3*4)
            | ((instruction & 0x00007f00) << 1*4);
       }
     } else {
-      rn = (instruction & 0xf0000000) >> 7*4;
+      rn = (instruction & 0xf0000000) >>> 7*4;
     }
     break;
   case 1:
@@ -257,12 +260,12 @@ function step() {
         pc += 4;
         rn = getMemory(pc);
       } else {
-        rn = ((instruction & 0xff000000) >> 6*4)
-           | ((instruction & 0x00ff0000) >> 2*4)
+        rn = ((instruction & 0xff000000) >>> 6*4)
+           | ((instruction & 0x00ff0000) >>> 2*4)
            | ((instruction & 0x00007f00) << 2*4);
       }
     } else {
-      rn = (instruction & 0x0f000000) >> 6*4;
+      rn = (instruction & 0x0f000000) >>> 6*4;
     }
     break;
   case 0:
@@ -293,18 +296,30 @@ function step() {
   //   debugText += "rd: " + regNames2[rd] + "; ";
   // console.log(debugText);
 
-  // now to actually execute the code
-  execute(opcode, parameters, m, rn, rs, rd);
+  // todo: this actually doesn't work since execute doesn't return anything
+  var isError = execute(opcode, parameters, m, rn, rs, rd) == "error";
   pc += 4;
+  if (isError && !paused) {
+    pause();
+  }
 }
-
+var runInterval;
+var paused = true;
 function run() {
   boot();
-  while (!asleep) { // test code to stop parsing rom when a sleep instruction is found
-    step();
+  runInterval = setInterval(step, 1);
+  paused = false;
+}
+function pause() {
+  if (document.getElementById("pause").value == "resume") {
+    runInterval = setInterval(step, 1);
+    document.getElementById("pause").value = "pause";
+    pause = false;
+  } else {
+    clearInterval(runInterval);
+    document.getElementById("pause").value = "resume";
+    pause = true;
   }
-  document.getElementById("currentInstruction").innerHTML = "N/A";
-  sleep();
 }
 
 // below are just notes n stuff
@@ -385,7 +400,7 @@ SUBB   0x87 Subs with Burrow        Rd = Rs - (Rn + C)               3
 RSB    0x88 Reverse Substract       Rd = Rn - Rs                     3
 RSBB   0x89 RSB with Burrow         Rd = Rn - (Rs + C)               3
 LLS    0x8A Logical Left Shift      Rd = Rs << Rn                    3
-LRS    0x8B Logical Right Shift     Rd = Rs >> Rn                    3
+LRS    0x8B Logical Right Shift     Rd = Rs >>> Rn                    3
 ARS    0x8C Arithmetic Right Shift  Rd = Rs >>> Rn                   3
 ROTL   0x8D Rotate Left             Rd = Rs ROTL Rn                  3
 ROTR   0x8E Rotate Right            Rd = Rs ROTR Rn                  3
