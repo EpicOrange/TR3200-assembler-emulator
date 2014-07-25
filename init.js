@@ -24,7 +24,6 @@ function init() {
   document.getElementById("undo").addEventListener('click', undo, false);
   document.getElementById("reset").addEventListener('click', boot, false);
   document.getElementById("run").addEventListener('click', run, false);
-  document.getElementById("pause").addEventListener('click', pause, false);
   document.getElementById("step").addEventListener('click', step, false);
   document.getElementById("memoryTop").addEventListener("click", function() {updateMemoryTable(currentPos - 4);}, false);
   document.getElementById("memoryBottom").addEventListener("click", function() {updateMemoryTable(currentPos + 4);}, false);
@@ -45,8 +44,7 @@ function init() {
     "LOAD %r1 %r9",
     "ADD %r8 %r9 %r10",
     "STORE %r2 %r10",
-    "; unsigned dwords can't contain the 47th fibbonacci",
-    "IFEQ 0xb8 %r2",
+    "IFEQ 0xb8 %r2", // todo use overflow flag
     "  JMP end",
     "ADD 0x4 %r0 %r0",
     "ADD 0x4 %r1 %r1",

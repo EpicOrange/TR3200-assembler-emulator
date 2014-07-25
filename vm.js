@@ -85,6 +85,14 @@ function setRegister(register, value) {
 var pc;
 
 function boot() {
+  // pause execution if running
+  if (running) {
+    run();
+  }
+  
+  // clear memory. but the specs don't say this is supposed to be done.
+  // memory = Array(mem_size_);
+
   // clear registers
   for (var i = 0; i < 16; i++) {
     setRegister(i, 0);
@@ -100,6 +108,20 @@ function boot() {
   document.getElementById("currentInstruction").innerHTML = "N/A";
   document.getElementById("currentInstructionText").innerHTML = "???";
   updateMemoryTable();
+}
+
+var runInterval;
+var running = false;
+function run() { // todo: should probably split this up into run and sleep
+  if (!running) {
+    runInterval = setInterval(step, 1);
+    document.getElementById("run").value = "pause";
+    running = true;
+  } else {
+    clearInterval(runInterval);
+    document.getElementById("run").value = "run";
+    running = false;
+  }
 }
 
 var asleep = false; // temporary test thingy
@@ -209,7 +231,7 @@ function execute(opcode, params, m, rn, rs, rd) {
 
 function step() {
   if (asleep) // this is temporary, (hopefully)
-    return pause();
+    return;
   var instruction = getMemory(pc); // reminder: instructions are in little-endian
   var opcode = instruction & 0xff;
   var parameters = numArgs(opcode); // number of parameters
@@ -299,26 +321,8 @@ function step() {
   // todo: this actually doesn't work since execute doesn't return anything
   var isError = execute(opcode, parameters, m, rn, rs, rd) == "error";
   pc += 4;
-  if (isError && !paused) {
-    pause();
-  }
-}
-var runInterval;
-var paused = true;
-function run() {
-  boot();
-  runInterval = setInterval(step, 1);
-  paused = false;
-}
-function pause() {
-  if (document.getElementById("pause").value == "resume") {
-    runInterval = setInterval(step, 1);
-    document.getElementById("pause").value = "pause";
-    pause = false;
-  } else {
-    clearInterval(runInterval);
-    document.getElementById("pause").value = "resume";
-    pause = true;
+  if (isError && running) {
+    run();
   }
 }
 

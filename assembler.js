@@ -149,8 +149,8 @@ function assemble(input) {
     console.log(hexToStr(0x100000 + i*4, 6) + ": " + hexToStr(instructions[i]));
   }
   
-  // clear memory
-  memory = Array(mem_size_);
+  // restart the VM
+  boot();
 
   // load assembled code into the rom memory
   if (instructions.length > 0x7fff)
@@ -163,7 +163,4 @@ function assemble(input) {
 
   // clear error without user having to press OK
   clearError();
-
-  // restart the VM
-  boot();
 }
