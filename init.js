@@ -23,36 +23,53 @@ function init() {
   document.getElementById("assemble").addEventListener('click', function() {assemble(input.value);}, false);
   document.getElementById("undo").addEventListener('click', undo, false);
   document.getElementById("reset").addEventListener('click', boot, false);
-  document.getElementById("run").addEventListener('click', run, false);
+  document.getElementById("run").addEventListener('click', toggle, false);
   document.getElementById("step").addEventListener('click', step, false);
   document.getElementById("memoryTop").addEventListener("click", function() {updateMemoryTable(currentPos - 4);}, false);
   document.getElementById("memoryBottom").addEventListener("click", function() {updateMemoryTable(currentPos + 4);}, false);
   document.getElementById("errorOK").addEventListener('click', clearError, false);
   document.getElementById("jump").addEventListener("click", function() {updateMemoryTable(document.getElementById("jumpValue").value);}, false);
   document.getElementById("jumpValue").value = "000000";
+  document.getElementById("clear").addEventListener("click", function() {memory = Array(mem_size_); boot();}, false);
 
   setupCanvas();
 
   var defaultInput = [
-    "MOV 0x1, %r10 ; assemble me and run!",
-    "STORE 0x0, %r10",
-    "STORE 0x4, %r10",
-    "MOV 0x4, %r1",
-    "MOV 0x8, %r2",
+//*
+    "MOV %r10, 1 ; assemble me and run!",
+    "STORE %r10, 0",
+    "STORE %r10, 4",
+    "MOV %r1, 4",
+    "MOV %r2, 8",
     "label:",
-    "LOAD %r0 %r8 ; commas are optional",
-    "LOAD %r1 %r9",
-    "ADD %r8 %r9 %r10",
-    "STORE %r2 %r10",
-    "IFEQ 0xb8 %r2", // todo use overflow flag
+    "LOAD %r8 %r0 ; commas are optional",
+    "LOAD %r9 %r1",
+    "ADD %r10 %r9 %r8",
+    "IFEQ %flags 3",
     "  JMP end",
-    "ADD 0x4 %r0 %r0",
-    "ADD 0x4 %r1 %r1",
-    "ADD 0x4 %r2 %r2",
+    "STORE %r10 %r2",
+    "ADD %r0 %r0 4",
+    "ADD %r1 %r1 4",
+    "ADD %r2 %r2 4",
     "JMP label",
     "end:"
-  ].join("\n");
+/*/// test code
 
+    "MOV %r4 21",
+    "MOV %r5 5",
+    "SDIV %r10 %r4 %r5 ; 21 / 5 = 4 + 1",
+    "MOV %r4 21",
+    "MOV %r5 -5",
+    "SDIV %r10 %r4 %r5 ; 21 / -5 = -4 + 1",
+    "MOV %r4 -21",
+    "MOV %r5 5",
+    "SDIV %r10 %r4 %r5 ; -21 / 5 = -4 + -1",
+    "MOV %r4 -21",
+    "MOV %r5 -5",
+    "SDIV %r10 %r4 %r5 ; -21 / -5 = 4 + -1",
+
+//*/
+  ].join("\n");
   document.getElementById("input").value = defaultInput;
   undoStorage = defaultInput;
   

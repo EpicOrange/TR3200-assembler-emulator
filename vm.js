@@ -1,7 +1,7 @@
 var mem_size_ = 1179647; // bytes in 0x000000 to 0x11ffff
 var memory = Array(mem_size_); // all the memory. all of it
 /*
-v. 0.4h
+TR3200 v0.4h
 
 Important addresses:
 0x000000-0x01ffff: initial ram
@@ -13,13 +13,25 @@ Important addresses:
 0x11ff00-0x11ffff: registers
 
 */
+
+
+/*
+Currently just doing this:
+0x000000: 0xff < reference this address for the dword
+0x000001: 0x00
+0x000002: 0x00
+0x000003: 0x00
+
+so 0x000000: 0x000000ff
+*/
+
 // table supresses warnings; table is true when it's the table fetching a value
 function getMemory(address, table) {
   if (address < 0x000000 || address > mem_size_)
     return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
   if ((address % 4) != 0)
     warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
-
+  address -= (address % 4); // align
   if ( typeof memory[address] == "undefined"
       || typeof memory[address+1] == "undefined"
       || typeof memory[address+2] == "undefined"
@@ -41,6 +53,7 @@ function setMemory(address, value, setRom) {
     return error("tried to set ram at out-of-bounds address " + hexToStr(address, 6));
   if ((address % 4) != 0)
     warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
+  address -= (address % 4); // align
   if (!setRom && address >= 0x100000 && address <= 0x107fff)
     return error("tried to set address in rom: " + hexToStr(address, 6));
   if (typeof value != "number" && isNaN(parseInt(value)))
@@ -60,6 +73,7 @@ function setMemory(address, value, setRom) {
   // update the user's table if the address is within bounds
   if (address >= currentPos && address < currentPos + (tableSize*4)) {
     updateMemoryTable();
+    flashBox("memory", (address - currentPos) / 4);
   }
 }
 function getRegister(register) {
@@ -80,14 +94,23 @@ function setRegister(register, value) {
   }
   setMemory(0x11ff00 + index*4, value);
   document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
+  flashBox("register", register);
+}
+function setFlag(index, value) {
+  var mask = 1 << index;
+  if (value) {
+    setRegister("%flags", getRegister("%flags") | mask); // set
+  } else {
+    setRegister("%flags", getRegister("%flags") & ~mask); // unset
+  }
 }
 
 var pc;
-
+var booting = true;
 function boot() {
-  // pause execution if running
+  booting = true;
   if (running) {
-    run();
+    pause();
   }
   
   // clear memory. but the specs don't say this is supposed to be done.
@@ -108,19 +131,26 @@ function boot() {
   document.getElementById("currentInstruction").innerHTML = "N/A";
   document.getElementById("currentInstructionText").innerHTML = "???";
   updateMemoryTable();
+  booting = false;
 }
 
 var runInterval;
 var running = false;
-function run() { // todo: should probably split this up into run and sleep
-  if (!running) {
+function run() {
     runInterval = setInterval(step, 1);
     document.getElementById("run").value = "pause";
     running = true;
-  } else {
+}
+function pause() {
     clearInterval(runInterval);
     document.getElementById("run").value = "run";
     running = false;
+}
+function toggle() {
+  if (!running) {
+    run();
+  } else {
+    pause();
   }
 }
 
@@ -128,19 +158,37 @@ var asleep = false; // temporary test thingy
 function sleep() { // temporary test function
   if (!asleep) {
     asleep = true;
+    pause();
     console.log("sleeping!");
   }
 }
 
 function execute(opcode, params, m, rn, rs, rd) {
-  // not done
   var rnValue;
   if (typeof rn != "undefined")
     rnValue = (m ? rn : getRegister(rn)) >>> 0;
+  var skip = false; // for conditionals
   switch (opcode) {
   case 0x0: // SLEEP
     sleep();
     break;
+// RET    0x01 Return from subrutine                                    4
+// RFI    0x02 Return from interrupt                                    6
+
+  case 0x20: // XCHGB
+    if (m)
+      warning("m bit set while executing XCHGB");
+    var value = getRegister(rn);
+    setRegister(rn, (value << 24) | (value >> 24) | (value & 0x00ffff00));
+  case 0x21: // XCHGW
+    if (m)
+      warning("m bit set while executing XCHGW");
+    var value = getRegister(rn);
+    setRegister(rn, (value << 16) | (value >> 16));
+  case 0x22: // GETPC
+    if (m)
+      warning("m bit set while executing GETPC");
+    setRegister(rn, pc + 4);
   case 0x23: // POP
     if (m)
       warning("m bit set while executing POP");
@@ -152,7 +200,7 @@ function execute(opcode, params, m, rn, rs, rd) {
     if (m)
       warning("m bit set while executing PUSH");
     var address = getRegister("%sp");
-    setMemory(address, rnValue);
+    setMemory(address, rn);
     setRegister("%sp", address - 4);
     break;
   case 0x25: // JMP
@@ -175,6 +223,9 @@ function execute(opcode, params, m, rn, rs, rd) {
     setRegister("%sp", address - 4);
     pc -= 4;
     break;
+
+// INT    0x29 Software Interrupt                                       6
+
   case 0x40: // MOV
     setRegister(rd, rnValue);
     break;
@@ -182,25 +233,59 @@ function execute(opcode, params, m, rn, rs, rd) {
     if (m)
       warning("m bit set while executing SWP");
     var temp = getRegister(rd);
-    setRegister(rd, rnValue);
+    setRegister(rd, rn);
     setRegister(rn, temp);
     break;
   case 0x42: // NOT
     setRegister(rd, ~rnValue);
     break;
+  case 0x43: // SIGXB
+    setRegister(rd, ((rnValue >> 7) ? rnValue | 0xffffff00 : rnValue));
+    break;
+  case 0x44: // SIGXW
+    setRegister(rd, ((rnValue >> 15) ? rnValue | 0xffff0000 : rnValue));
+    break;
   case 0x45: // LOAD
     setRegister(rd, getMemory(rnValue));
+    break;
+  case 0x46: // LOADW
+    setRegister(rd, getMemory(rnValue) & 0xffff);
+    break;
+  case 0x47: // LOADB
+    setRegister(rd, getMemory(rnValue) & 0xff);
     break;
   case 0x48: // STORE
     setMemory(rnValue, getRegister(rd));
     break;
-  case 0x4b: // IFEQ
-    if (rnValue != getRegister(rd))
-      pc += 4;
+  case 0x49: // STOREW
+    setMemory(rnValue, getRegister(rd) & 0xffff);
     break;
-  case 0x4c: // INEQ
-    if (rnValue == getRegister(rd))
-      pc += 4;
+  case 0x4a: // STOREB
+    setMemory(rnValue, getRegister(rd) & 0xff);
+    break;
+  case 0x4b: // IFEQ
+    skip = rnValue != getRegister(rd);
+    break;
+  case 0x4c: // IFNEQ
+    skip = rnValue == getRegister(rd);
+    break;
+  case 0x4d: // IFL
+    skip = rnValue >= getRegister(rd);
+    break;
+  case 0x4e: // IFSL
+    skip = (rnValue >> 0) >= (getRegister(rd) >> 0);
+    break;
+  case 0x4f: // IFLE
+    skip = rnValue > getRegister(rd);
+    break;
+  case 0x50: // IFSLE
+    skip = (rnValue >> 0) > (getRegister(rd) >> 0);
+    break;
+  case 0x51: // IFBITS
+    skip = (rnValue & getRegister(rd)) == 0;
+    break;
+  case 0x52: // IFCLEAR
+    skip = (rnValue & getRegister(rd)) != 0;
     break;
   case 0x53: // JMP
     pc = (rnValue + getRegister(rd)) & 0xfffffffc;
@@ -210,22 +295,150 @@ function execute(opcode, params, m, rn, rs, rd) {
     setMemory(address, rnValue);
     setRegister("%sp", address - 4);
     break;
+  case 0x80: // AND
+    setRegister(rd, getRegister(rs) & rnValue);
+    break;
+  case 0x81: // OR
+    setRegister(rd, getRegister(rs) | rnValue);
+    break;
+  case 0x82: // XOR
+    setRegister(rd, getRegister(rs) ^ rnValue);
+    break;
+  case 0x83: // BITC
+    setRegister(rd, getRegister(rs) & ~rnValue);
+    break;
   case 0x84: // ADD
+  case 0x85: // ADDC
     var value = getRegister(rs) + rnValue;
-    //if (value > 0xffffffff)
-    // todo: learn carry bit and overflow bit logic from here:
-    // http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
-    
-    setRegister(rd, value);
+    setFlag(0, value > 0xffffffff); // carry flag
+    setFlag( 1, (((value & 0x80000000) ^ (rnValue & 0x80000000)) ^ ((rnValue & 0x80000000) ^ (getRegister(rs) & 0x80000000))) >>> 31); // overflow flag
+    value &= 0xffffffff;
+    if (opcode == 0x85) // ADDC
+      value += getRegister("%flags") & 1;
+    setRegister(rd, value >>> 0);
     break;
   case 0x86: // SUB
-    var value = getRegister(rs) - rnValue;
-    //see ADD
-    
+  case 0x87: // SUBB
+    var c = opcode == 0x86 ? 1 : (getRegister("%flags") & 1);
+    var value = (getRegister(rs) + c + ~rnValue) >>> 0;
+    setFlag(0, getRegister(rs) < rnValue); // carry flag
+    setFlag( 1, ((value >>> 31) ^ (rnValue >>> 31)) ^ ((rnValue >>> 31) ^ (getRegister(rs) >>> 31)) ); // overflow flag
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x88: // RSB
+  case 0x89: // RSBB
+    var c = opcode == 0x88 ? 1 : (getRegister("%flags") & 1);
+    var value = (rnValue + c + ~getRegister(rs)) >>> 0;
+    setFlag(0, rnValue < getRegister(rs)); // carry flag
+    setFlag( 1, ((value >>> 31) ^ (getRegister(rs) >>> 31)) ^ ((getRegister(rs) >>> 31) ^ (rnValue >>> 31)) ); // overflow flag
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x8a: // LLS
+    var value = getRegister(rs) << rnValue;
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x8b: // LRS
+    var value = getRegister(rs) >>> rnValue;
     setRegister(rd, value);
+    break;
+  case 0x8c: // ARS
+    var value = getRegister(rs) >>> rnValue;
+    if (getRegister(rs) >>> 31)
+      value = value | (0xffffffff << (32 - rnValue));
+    setRegister(rd, value);
+    break;
+  case 0x8d: // ROTL
+    var value = getRegister(rs) << rnValue;
+    if (getRegister(rs) >>> 31)
+      value = value | 0x00000001;
+    setRegister(rd, value);
+    break;
+  case 0x8e: // ROTR
+    var value = getRegister(rs) >>> rnValue;
+    if (getRegister(rs) & 1)
+      value = value | 0x80000000;
+    setRegister(rd, value);
+    break;
+  case 0x8f: // MUL
+    var a = getRegister(rs);
+    var b = rnValue;
+    var value = (a & 0xffff) * (b & 0xffff); // 1st digit
+    var y = (a >>> 16) * (b >>> 16); // 2nd digit
+    var temp = ((a & 0xffff) * (b >>> 16)) + ((a >>> 16) * (b & 0xffff)); // middle
+    value += (temp & 0xffff) << 16;
+    y += temp >>> 16;
+    setRegister("%y", y >>> 0);
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x90: // SMUL
+    // booth's multiplication algorithm
+    var a = getRegister(rs); // multiplicand
+    var y = 0;
+    var value = rnValue;
+    var b = 0; // bit
+    for (var i = 0; i < 32; i++) {
+      if (!(value & 1) && (b == 1)) { // add
+        y = (y + a) & 0xffffffff;
+      } else if ((value & 1) && (b == 0)) { // sub
+        y = (y + ~a + 1) & 0xffffffff;
+      }
+      // [y] >> [value] >> [b]
+      var temp = y >>> 31;
+      b = value & 1;
+      value = (value >>> 1) | ((y & 1) << 31);
+      y = (y >>> 1) | ((temp << 31) >>> 0);
+    }
+    setRegister("%y", y >>> 0);
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x91: // DIV
+    setFlag(2, (rnValue == 0))
+    if (rnValue == 0) break;
+    var y = getRegister(rs) % rnValue;
+    var value = getRegister(rs) / rnValue;
+    setRegister("%y", y >>> 0);
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x92: // SDIV
+    setFlag(2, (rnValue == 0))
+    if (rnValue == 0) break;
+    var a = (getRegister(rs) >>> 31) ? ~getRegister(rs) + 1 : getRegister(rs);
+    var b = (rnValue >>> 31) ? ~rnValue + 1 : rnValue;
+    var y = (a % b) >>> 0;
+    var value = Math.floor(a / b) >>> 0;
+    if (getRegister(rs) >>> 31)
+      y = ~y + 1;
+    if ((getRegister(rs) >>> 31) ^ (rnValue >>> 31))
+      value = ~value + 1;
+    setRegister("%y", y >>> 0);
+    setRegister(rd, value >>> 0);
+    break;
+  case 0x93: // LOAD
+    setRegister(rd, getMemory(getRegister(rs) + rnValue));
+    break;
+  case 0x94: // LOADW
+    setRegister(rd, getMemory(getRegister(rs) + rnValue) & 0xffff);
+    break;
+  case 0x95: // LOADB
+    setRegister(rd, getMemory(getRegister(rs) + rnValue) & 0xff);
+    break;
+  case 0x96: // STORE
+    setMemory(getRegister(rs) + rnValue, getRegister(rd));
+    break;
+  case 0x97: // STOREW
+    setMemory(getRegister(rs) + rnValue, getRegister(rd) & 0xffff);
+    break;
+  case 0x98: // STOREB
+    setMemory(getRegister(rs) + rnValue, getRegister(rd) & 0xff);
     break;
   default:
     console.log("unimplemented opcode: 0x" + opcode.toString(16));
+  }
+  if (skip) {
+    do {
+      pc += 4;
+      var nextOp = getMemory(pc) & 0xff;
+    } while (nextOp >= 0x4b && nextOp <= 0x52);
   }
 }
 
@@ -297,12 +510,12 @@ function step() {
   var operation = "???"; // text form of the operation
   if (opcode in opcodes2) {
     operation = opcodes2[opcode];
-    if (typeof rn != "undefined")
-      operation += " " + (m ? hexToStr(rn) : regNames2[rn]);
-    if (typeof rs != "undefined")
-      operation += " " + regNames2[rs];
     if (typeof rd != "undefined")
       operation += " " + regNames2[rd];
+    if (typeof rs != "undefined")
+      operation += " " + regNames2[rs];
+    if (typeof rn != "undefined")
+      operation += " " + (m ? hexToStr(rn) : regNames2[rn]);
   }
   document.getElementById("currentInstructionText").innerHTML = operation;
 
@@ -322,7 +535,7 @@ function step() {
   var isError = execute(opcode, parameters, m, rn, rs, rd) == "error";
   pc += 4;
   if (isError && running) {
-    run();
+    pause();
   }
 }
 
@@ -404,14 +617,14 @@ SUBB   0x87 Subs with Burrow        Rd = Rs - (Rn + C)               3
 RSB    0x88 Reverse Substract       Rd = Rn - Rs                     3
 RSBB   0x89 RSB with Burrow         Rd = Rn - (Rs + C)               3
 LLS    0x8A Logical Left Shift      Rd = Rs << Rn                    3
-LRS    0x8B Logical Right Shift     Rd = Rs >>> Rn                    3
+LRS    0x8B Logical Right Shift     Rd = Rs >>> Rn                   3
 ARS    0x8C Arithmetic Right Shift  Rd = Rs >>> Rn                   3
 ROTL   0x8D Rotate Left             Rd = Rs ROTL Rn                  3
 ROTR   0x8E Rotate Right            Rd = Rs ROTR Rn                  3
 MUL    0x8F Multiplication 32x32    Y:Rd = Rs * Rn                  20
 SMUL   0x90 Signed Multiplication   Y:Rd = Rs * Rn                  30
 DIV    0x91 Division 32:32          Rd = Rs / Rn ; Y = Rs % Rn      25
-SDIV   0x92 Signed Division         Rd = Rs / Rn; Y = Rs % Rn       35
+SDIV   0x92 Signed Division         Rd = Rs / Rn ; Y = Rs % Rn      35
 LOAD   0x93 Loads a dword           Rd = ram[Rs + Rn]                3
 LOADW  0x94 Loads a word            Rd = ram[Rs + Rn]                3
 LOADB  0x95 Loads a byte            Rd = ram[Rs + Rn]                3
@@ -426,7 +639,7 @@ STOREB 0x98 Saves a byte            ram[Rs + Rn] = Rd                3
   0,           // %bp (base pointer);
   0,           // %sp (stack pointer)
   0,           // %flags
-               //   31 -> abcd eeee fghh hhhh hhhh hhhh hhhh hhhh <- 0
+               //   31 -> hhhh hhhh hhhh hhhh hhhh hhgf eeee dcba <- 0
                //   a: CF (carry flag)
                //   b: OF (overflow flag)
                //   c: DE (division error flag)

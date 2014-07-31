@@ -56,6 +56,28 @@ function undo() {
   undoStorage = temp;
 }
 
+function flashBox(type, index) {
+  if (booting) return;
+  var element;
+  var t = (running ? 100 : 1000);
+  switch (type) {
+  case "register":
+    if (typeof index == "number")
+      index = regNames2[index];
+    element = document.getElementById(index);
+    break;
+  case "memory":
+    element = document.getElementById("memory-value-" + index);
+    break;
+  }
+  if (element != null) {
+    element.className = "set";
+    setTimeout(function() { // meh
+      element.className = "";
+    }, t);
+  }
+}
+
 var opcodes = {
   "SLEEP": 0x00,
   "RET": 0x01,

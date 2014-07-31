@@ -25,44 +25,55 @@ function assemble(input) {
       } else if (!(op in opcodes)) 
         return error("Unrecognized operation " + op + " on line " + (i+1));
       var instruction = opcodes[op];
-      var arg_length = numArgs(instruction); // the number of args the instruction is supposed to have
-      if (arg_length != (args.length - 1)) {
+      var len = numArgs(instruction); // the number of args the instruction is supposed to have
+      if (len != (args.length - 1)) {
         // this next line means 'if the instruction has another opcode in opcodes[2], and has the right # of args for that'
         if ( !((op in d_opcodes) && (args.length - 1 == numArgs(d_opcodes[op]))) )
           return error( op + " (opcode: " + hexToStr(opcodes[op], 2) + ") on line " + (i+1) + " requires " + 
-              arg_length + " argument" + (arg_length == 1 ? "" : "s")+ ". (given: " + (args.length - 1) + ")" );
+              len + " argument" + (len == 1 ? "" : "s")+ ". (given: " + (args.length - 1) + ")" );
       }
 
       // modify args: "0x10" => 16
       var next_dword = false;
-      for (var j = 1; j <= arg_length; j++) {
+      for (var j = 1; j <= len; j++) {
         // there's a better way to structure this, but this is more readable. i think.
         // actually i'm just too lazy to structure this right
         if (args[j] in regNames) { // do nothing; args[j] is a register name which is valid
-        } else if (j == 1 && args[1].match(/^[a-zA-Z]+$/)) { // also do nothing; args[1] is a label
-        } else if (j == 1) {
-          if (typeof parseInt(args[1]) == "number") { // args[1] is an immediate value
-            args[1] = parseInt(args[1]) >>> 0; // turn into a unsigned 32-bit int
+        } else if (j == len && args[len].match(/^[a-zA-Z]+$/)) { // also do nothing; args[len] is a label
+        } else if (j == len) { // rn
+          if (typeof parseInt(args[len]) == "number") { // rn is an immediate value
+            // turn into a unsigned 32-bit int
+            if (args[len].match(/^0b/)) { // bin
+              args[len] = args[len].substr(2);
+              if (!args[len].match(/^[01]{1,32}$/))
+                return error("invalid binary representation on line " + (i+1));
+              args[len] = parseInt(args[len], 2) >>> 0;
+            } else if (args[len].match(/^0[^bx]/)) { // oct
+              args[len] = args[len].substr(1);
+              if (!args[len].match(/^[0-7]{1,11}$/))
+                return error("invalid octal representation on line " + (i+1));
+              args[len] = parseInt(args[len], 8) >>> 0;
+            } else // hex and dec
+              args[len] = parseInt(args[len]) >>> 0; 
 
-            // this part of the code just checks if the value should be put in the next dword
-            if (args[1] > 0xffffffff)
-              return error("Argument 1 on line " + (i+1) + " cannot fit into a dword (value: " + hexToStr(args[1], 1) + ")");
-            var absvalue = (args[1] >>> 31) ? ((-args[1]) >>> 0) : args[1]; // absolute value of dword
+            // this part of the code just checks if the value should be put in the next dword, and sets args[5] if yes
+            if (args[len] > 0xffffffff)
+              return error("Argument " + len + " on line " + (i+1) + " cannot fit into a dword (value: " + hexToStr(args[len], 1) + ")");
             var limit;
-            if (arg_length == 3) limit = 0x4000;
-            else if (arg_length == 2) limit = 0x40000;
-            else if (arg_length == 1) limit = 0x400000;
-            if (absvalue >= limit) {
+            if (len == 3) limit = 0x4000;
+            else if (len == 2) limit = 0x40000;
+            else if (len == 1) limit = 0x400000;
+            if (args[len] >= limit) {
               currentAddress += 4;
               next_dword = true;
             }
           } else
-            return error("Argument 1 on line " + (i+1) + " is not a register name, label, or 32-bit signed integer!");
+            return error("Argument " + len + " on line " + (i+1) + " is not a register name, label, or 32-bit signed integer!");
         } else {
           return error("Argument " + j + " on line " + (i+1) + " is not a register name!");
         }
       }
-      args[4] = arg_length;
+      args[4] = len;
       args[5] = next_dword;
       argTable.push(args);
       currentAddress += 4;
@@ -71,7 +82,7 @@ function assemble(input) {
 
   // now go through argTable[] and turn them into dwords to store in instructions[]
   for (var i = 0; i < argTable.length; i++) { // i is line value. should probably do a foreach loop though
-    var args = argTable[i]; // [opcode, rn, rd/rs, rd, # args, push value as dword]
+    var args = argTable[i]; // [opcode, rn, rd/rs, rd, # args, push rn as dword]
     var instruction = opcodes[args[0].toUpperCase()];
 
      // reason we check later for labels: when reading instructions, it's possible the labels aren't parsed yet
@@ -81,39 +92,39 @@ function assemble(input) {
     switch (args[4]) {
     case 3:
       instruction = instruction | (regNames[args[2]] << 7*4); // rs: 0x *0 00 00 00
-      instruction = instruction | (regNames[args[3]] << 6*4); // rd: 0x 0* 00 00 00
-      if (typeof args[1] == "number") { // if rn is a number value
+      instruction = instruction | (regNames[args[1]] << 6*4); // rd: 0x 0* 00 00 00
+      if (typeof args[3] == "number") { // if rn is a number value
         if (args[5]) {
           instruction = instruction | 0x0000C000;
           instructions.push(instruction);
-          instructions.push(args[1]);
+          instructions.push(args[3]);
         } else {
-          instruction = instruction | ((args[1] & 0x00ff) << 4*4);  // 0x 00 ** 00 00
-          instruction = instruction | ((args[1] & 0xff00) << 0*4);  // 0x 00 00 ** 00
-          instruction = instruction | 0x00008000;                 // set M bit
-          instructions.push(instruction);
-        }
-      } else {
-        instruction = instruction | (regNames[args[1]] << 4*4); // rn: 0x 00 0* 00 00
-        instructions.push(instruction);
-      }
-      break;
-    case 2:
-      instruction = instruction | (regNames[args[2]] << 6*4); // rd: 0x 0* 00 00 00
-      if (typeof args[1] == "number") { // if rn is a number value
-        if (args[5]) {
-          instruction = instruction | 0x0000C000;
-          instructions.push(instruction);
-          instructions.push(args[1]);
-        } else {
-          instruction = instruction | ((args[1] & 0x00000f) << 7*4);  // 0x *0 00 00 00
-          instruction = instruction | ((args[1] & 0x000ff0) << 3*4);  // 0x 00 ** 00 00
-          instruction = instruction | ((args[1] & 0x0ff000) >>> 1*4);  // 0x 00 00 ** 00
+          instruction = instruction | ((args[3] & 0x00ff) << 4*4);  // 0x 00 ** 00 00
+          instruction = instruction | ((args[3] & 0xff00) << 0*4);  // 0x 00 00 ** 00
           instruction = instruction | 0x00008000;                   // set M bit
           instructions.push(instruction);
         }
       } else {
-        instruction = instruction | (regNames[args[1]] << 7*4); // rn: 0x *0 00 00 00
+        instruction = instruction | (regNames[args[3]] << 4*4); // rn: 0x 00 0* 00 00
+        instructions.push(instruction);
+      }
+      break;
+    case 2:
+      instruction = instruction | (regNames[args[1]] << 6*4); // rd: 0x 0* 00 00 00
+      if (typeof args[2] == "number") { // if rn is a number value
+        if (args[5]) {
+          instruction = instruction | 0x0000C000;
+          instructions.push(instruction);
+          instructions.push(args[2]);
+        } else {
+          instruction = instruction | ((args[2] & 0x00000f) << 7*4);  // 0x *0 00 00 00
+          instruction = instruction | ((args[2] & 0x000ff0) << 3*4);  // 0x 00 ** 00 00
+          instruction = instruction | ((args[2] & 0x0ff000) >>> 1*4); // 0x 00 00 ** 00
+          instruction = instruction | 0x00008000;                     // set M bit
+          instructions.push(instruction);
+        }
+      } else {
+        instruction = instruction | (regNames[args[2]] << 7*4); // rn: 0x *0 00 00 00
         instructions.push(instruction);
       }
       break;
@@ -126,8 +137,8 @@ function assemble(input) {
         } else {
           instruction = instruction | ((args[1] & 0x0000ff) << 6*4);  // 0x ** 00 00 00
           instruction = instruction | ((args[1] & 0x00ff00) << 2*4);  // 0x 00 ** 00 00
-          instruction = instruction | ((args[1] & 0xff0000) >>> 2*4);  // 0x 00 00 ** 00
-          instruction = instruction | 0x00008000;                   // set M bit
+          instruction = instruction | ((args[1] & 0xff0000) >>> 2*4); // 0x 00 00 ** 00
+          instruction = instruction | 0x00008000;                     // set M bit
           instructions.push(instruction);
         }
       } else {
