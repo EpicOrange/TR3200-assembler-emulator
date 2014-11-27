@@ -31,11 +31,9 @@
         <br>
         <pre id="errorDisplay" style="display: none"></pre>
         <input type="button" id="errorOK" value="OK" style="display: none">
-      <!-- hack to get rid of inline-block spacing -->
-      </div
-     ><div id="rom-controls">
+      </div><div id="rom-controls">
         <input type="button" id="assemble" value="assemble into rom"><br>
-        <input type="button" id="parse" value="store into rom"> as 
+        <input type="button" id="parse" value="store into rom"><span> as </span> 
         <select id="format">
           <option value="hex">Hex</option>
           <option value="bin">Binary</option>
@@ -49,7 +47,6 @@
         <input type="button" id="undo" value="undo"><br>
         <input type="button" id="clear" value="Clear memory">
       </div>
-      <br>
       <div id="register-container">
         <table id="registerView" width="500px">
           <thead>
@@ -135,8 +132,8 @@
             <input type="button" id="memoryBottom" value="" class="memoryButton">
           </td></tr></tbody>
         </table>
-        <input type="button" id="jump" value="Jump to address">: 
-        0x<input type="text" id="jumpValue" size="6" maxlength="6">
+        <input type="button" id="jump" value="Jump to address:">
+        <span>0x</span><input type="text" id="jumpValue" size="6" maxlength="6">
       </div>
     </div>
   </body>
