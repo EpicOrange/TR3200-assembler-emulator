@@ -1,177 +1,201 @@
 var labelRegex = /^[a-zA-Z]+:$/;
+
+/*
+==================================
+Syntax :
+
+- *instr* Rd, Rs, Rn
+- STORE Rs + Rn, Rd
+- STORE [Rs + Rn], Rd
+- LOAD Rd, Rs + Rn
+- LOAD Rd, [Rs + Rn]
+Examples :
+
+- %r7 = %r6 | %r7 : OR %r7, %r6 , %r7   ->  0x81000767
+- Loads dword at %r1+1024 in %r7 : LOAD %r7, %r1 + 1024 -> 0x60A80227
+- %r0 = %r1 & 0xAAAA5555 : AND %r0, %r1, 0xAAAA -> 0xC0C00010, 0xAAAA5555
+==================================
+Syntax :
+
+- *instr* Rd, Rn
+- LOAD Rd, Rn
+- STORE Rn, Rd
+- JMP/CALL Rd + Rn
+Examples :
+
+- Set %r10 = %sp : MOV %r10, %sp -> 0x400000DA
+- Jumps to %r1 + 0x300 : JMP %r1 + 0x300 -> 0x59800C01
+- Writes LSB byte in %r10 to 0xFF0B0000 : STOREB 0xFF0B0000, %r10 -> 0x48C0000A, 0xFF0B0000
+==================================
+Syntax :
+
+- *instr* Rn
+Examples :
+
+- INT 21h -> 0x29800021
+- CALL 0xBEBECAFE -> 0x26C00000, 0xBEBECAFE
+==================================
+Syntax : - instr
+
+Examples : - RET -> 0x01000000
+*/
+
+
 function assemble(input) {
-  var lines = input.trim().split("\n");
-  var currentAddress = 0x100000;
-  var argTable = [];
-  var instructions = [];
-  var labels = {};
-  // parse all lines and store args as arrays in argTable[]
-  for (var i = 0; i < lines.length; i++) {
-    lines[i] = lines[i].replace(/;.+$/, "").trim(); // get rid of comments and extra whitespace
-    if (lines[i] == "") // line is empty
-      continue;
-    else if (lines[i].match(labelRegex)) { // line is a label
-      var name = lines[i].match(/^[a-zA-Z]+/);
-      if (name in labels) 
-        return error("Duplicate label \"" + name + "\" on line " + (i+1));
-      labels[name] = currentAddress;
-      continue;
-    } else { // line is an instruction
-      var args = lines[i].replace(/[\s,]+/g, ",").split(","); // array of args, including the op
-      var op = args[0].toUpperCase(); // op name
-      if (op == "NOP") {
-        argTable.push(["MOV", "%r0", "%r0"]); // hard code NOP as MOV %r0 %r0
-        continue;
-      } else if (!(op in opcodes)) 
-        return error("Unrecognized operation " + op + " on line " + (i+1));
-      var instruction = opcodes[op];
-      var len = numArgs(instruction); // the number of args the instruction is supposed to have
-      if (len != (args.length - 1)) {
-        // this next line means 'if the instruction has another opcode in opcodes[2], and has the right # of args for that'
-        if ( !((op in d_opcodes) && (args.length - 1 == numArgs(d_opcodes[op]))) )
-          return error( op + " (opcode: " + hexToStr(opcodes[op], 2) + ") on line " + (i+1) + " requires " + 
-              len + " argument" + (len == 1 ? "" : "s")+ ". (given: " + (args.length - 1) + ")" );
-      }
+  var lines = input.trim().replace(/;.+\n/, "\n").split("\n"); // remove comments and separate lines into an array
+  var instructions = []; // bytes to store in rom
+  // parse lines one by one
+  for (var lineNumber = 1; lineNumber <= lines.length; lineNumber++) {
+    var line = lines[lineNumber - 1].trim().toLowerCase();
+    if (line == "") continue;
 
-      // modify args: "0x10" => 16
-      var next_dword = false;
-      for (var j = 1; j <= len; j++) {
-        // there's a better way to structure this, but this is more readable. i think.
-        // actually i'm just too lazy to structure this right
-        if (args[j] in regNames) { // do nothing; args[j] is a register name which is valid
-        } else if (j == len && args[len].match(/^[a-zA-Z]+$/)) { // also do nothing; args[len] is a label
-        } else if (j == len) { // rn
-          if (typeof parseInt(args[len]) == "number") { // rn is an immediate value
-            // turn into a unsigned 32-bit int
-            if (args[len].match(/^0b/)) { // bin
-              args[len] = args[len].substr(2);
-              if (!args[len].match(/^[01]{1,32}$/))
-                return error("invalid binary representation on line " + (i+1));
-              args[len] = parseInt(args[len], 2) >>> 0;
-            } else if (args[len].match(/^0[^bx]/)) { // oct
-              args[len] = args[len].substr(1);
-              if (!args[len].match(/^[0-7]{1,11}$/))
-                return error("invalid octal representation on line " + (i+1));
-              args[len] = parseInt(args[len], 8) >>> 0;
-            } else // hex and dec
-              args[len] = parseInt(args[len]) >>> 0; 
-
-            // this part of the code just checks if the value should be put in the next dword, and sets args[5] if yes
-            if (args[len] > 0xffffffff)
-              return error("Argument " + len + " on line " + (i+1) + " cannot fit into a dword (value: " + hexToStr(args[len], 1) + ")");
-            var limit;
-            if (len == 3) limit = 0x4000;
-            else if (len == 2) limit = 0x40000;
-            else if (len == 1) limit = 0x400000;
-            if (args[len] >= limit) {
-              currentAddress += 4;
-              next_dword = true;
-            }
-          } else
-            return error("Argument " + len + " on line " + (i+1) + " is not a register name, label, or 32-bit signed integer!");
-        } else {
-          return error("Argument " + j + " on line " + (i+1) + " is not a register name!");
-        }
-      }
-      args[4] = len;
-      args[5] = next_dword;
-      argTable.push(args);
-      currentAddress += 4;
+    var op = line.match(/^[a-z]+/);
+    if (!op) {
+      return error("no op found on line " + lineNumber);
     }
-  }
+    op = op[0];
+    if (!(op in opcodes)) {
+      return error("Unrecognized op on line " + lineNumber + ": " + op.toUpperCase());
+    }
+    var opcode = opcodes[op];
 
-  // now go through argTable[] and turn them into dwords to store in instructions[]
-  for (var i = 0; i < argTable.length; i++) { // i is line value. should probably do a foreach loop though
-    var args = argTable[i]; // [opcode, rn, rd/rs, rd, # args, push rn as dword]
-    var instruction = opcodes[args[0].toUpperCase()];
+    // parse parameters
+    var parameters = numParams(op);
+    var paramList = line.replace(/^[a-z]+\s+/, "").replace(/\s*/g, "").split(",");
+    // spit out an error if there's the wrong number of parameters
+    // TODO: this
 
-     // reason we check later for labels: when reading instructions, it's possible the labels aren't parsed yet
-    if (args.length != 0 && args[1] in labels)
-      args[1] = labels[args[1]];
+    // now get rn, rs, and rd
+    var rn, rs, rd;
+    var rnLimit; // to determine if L bit should be set
+    if (opcode >= 0x93 && opcode <= 0x95) { // 3 parameter load
+      var temp = paramList[1].split("+");
+      if (temp.length == 2) {
+        rs = temp[0].trim();
+        rn = temp[1].trim();
+        rd = paramList[0];
+      } else {
+        return error("LOAD parameter syntax error on line " + lineNumber);
+      }
+    } else if (opcode >= 0x96 && opcode <= 0x98) { // 3 parameter store
+      var temp = paramList[0].split("+");
+      if (temp.length == 2) {
+        rs = temp[0].trim();
+        rn = temp[1].trim();
+        rd = paramList[1];
+      } else {
+        return error("STORE parameter syntax error on line " + lineNumber);
+      }
+    } else if (opcode >= 0x48 && opcode <= 0x4a) { // 2 parameter store
+      rd = paramList[1];
+      rn = paramList[0];
+      rnLimit = 0x3FFFF;
+    } else if (opcode >= 0x53 && opcode <= 0x54) { // 2 parameter jmp / call
+      var temp = paramList[0].split("+");
+      if (temp.length == 2) {
+        rn = temp[1].trim();
+        rd = temp[0].trim();
+      } else {
+        return error("JMP/CALL parameter syntax error on line " + lineNumber);
+      }
+    } else if (parameters == 3) {
+      rd = paramList[0];
+      rs = paramList[1];
+      rn = paramList[2];
+      rnLimit = 0x3FFFFF;
+    } else if (parameters == 2) {
+      rd = paramList[0];
+      rn = paramList[1];
+      rnLimit = 0x3FFFF;
+    } else if (parameters == 1) {
+      rn = paramList[0];
+      rnLimit = 0x3FFF;
+    }
 
-    switch (args[4]) {
+    // turn 0x10, "%r10" into number values
+    var m = false, l = false;
+    switch (parameters) {
     case 3:
-      instruction = instruction | (regNames[args[2]] << 7*4); // rs: 0x *0 00 00 00
-      instruction = instruction | (regNames[args[1]] << 6*4); // rd: 0x 0* 00 00 00
-      if (typeof args[3] == "number") { // if rn is a number value
-        if (args[5]) {
-          instruction = instruction | 0x0000C000;
-          instructions.push(instruction);
-          instructions.push(args[3]);
-        } else {
-          instruction = instruction | ((args[3] & 0x00ff) << 4*4);  // 0x 00 ** 00 00
-          instruction = instruction | ((args[3] & 0xff00) << 0*4);  // 0x 00 00 ** 00
-          instruction = instruction | 0x00008000;                   // set M bit
-          instructions.push(instruction);
-        }
+      if (rs in regNames) {
+        rs = regNames[rs];
       } else {
-        instruction = instruction | (regNames[args[3]] << 4*4); // rn: 0x 00 0* 00 00
-        instructions.push(instruction);
+        return error("Invalid value(" + rs + ") for Rs on line " + lineNumber);
       }
-      break;
     case 2:
-      instruction = instruction | (regNames[args[1]] << 6*4); // rd: 0x 0* 00 00 00
-      if (typeof args[2] == "number") { // if rn is a number value
-        if (args[5]) {
-          instruction = instruction | 0x0000C000;
-          instructions.push(instruction);
-          instructions.push(args[2]);
-        } else {
-          instruction = instruction | ((args[2] & 0x00000f) << 7*4);  // 0x *0 00 00 00
-          instruction = instruction | ((args[2] & 0x000ff0) << 3*4);  // 0x 00 ** 00 00
-          instruction = instruction | ((args[2] & 0x0ff000) >>> 1*4); // 0x 00 00 ** 00
-          instruction = instruction | 0x00008000;                     // set M bit
-          instructions.push(instruction);
-        }
+      if (rd in regNames) {
+        rd = regNames[rd];
       } else {
-        instruction = instruction | (regNames[args[2]] << 7*4); // rn: 0x *0 00 00 00
-        instructions.push(instruction);
+        return error("Invalid value(" + rd + ") for Rd on line " + lineNumber);
       }
-      break;
     case 1:
-      if (typeof args[1] == "number") { // if rn is a number value
-        if (args[5]) {
-          instruction = instruction | 0x0000C000;
-          instructions.push(instruction);
-          instructions.push(args[1]);
-        } else {
-          instruction = instruction | ((args[1] & 0x0000ff) << 6*4);  // 0x ** 00 00 00
-          instruction = instruction | ((args[1] & 0x00ff00) << 2*4);  // 0x 00 ** 00 00
-          instruction = instruction | ((args[1] & 0xff0000) >>> 2*4); // 0x 00 00 ** 00
-          instruction = instruction | 0x00008000;                     // set M bit
-          instructions.push(instruction);
-        }
+      if (rn in regNames) {
+        rn = regNames[rn];
+      } else if (isNaN(parseInt(rn))) {
+        return error("Invalid value(" + rn + ") for Rn on line " + lineNumber);
       } else {
-        instruction = instruction | (regNames[args[1]] << 6*4); // rn: 0x 0* 00 00 00
-        instructions.push(instruction);
+        rn = parseInt(rn);
+        m = true;
+        if (rn < 0) {
+          return error("Negative value " + rn + " on line " + lineNumber);
+        }
       }
-      break;
-    case 0:
-      instructions.push(instruction);
-      break;
+    }
+
+    // construct dword
+    // 3 param: 0b oooo oooo mldd ddss ssnn nnnn nnnn nnnn
+    //         (0b nnnn nnnn ssnn nnnn mldd ddss oooo oooo)
+    // 2 param: 0b oooo oooo mldd ddnn nnnn nnnn nnnn nnnn
+    //         (0b nnnn nnnn nnnn nnnn mldd ddnn oooo oooo)
+    // 1 param: 0b oooo oooo mlnn nnnn nnnn nnnn nnnn nnnn
+    //         (0b nnnn nnnn nnnn nnnn mlnn nnnn oooo oooo)
+    // 0 param: 0b oooo oooo 00xx xxxx xxxx xxxx xxxx xxxx
+    //         (0b xxxx xxxx xxxx xxxx 00xx xxxx oooo oooo)
+
+    var instruction; // the dword, big endian
+    instruction = opcode << 24; // opcode: 0x ff 00 00 00
+    switch (parameters) {
+    case 3:
+      instruction = instruction | (rs << 14); // rs: 0x 00 03 c0 00 
+    case 2:
+      instruction = instruction | (rd << 18); // rd: 0x 03 c0 00 00 
+    case 1:
+      if (rn < rnLimit) {
+        instruction = instruction | rn; // rn: depends on # of params
+      } else if (rn < 0xffffffff) {
+        l = true;
+      } else {
+        return error("Value > 0xffffffff " + rn + " on line " + lineNumber);
+      }
     default:
-      return error("Too many arguments on line " + (i+1)); // should never happen.
+      instruction = instruction | (m << 23); // m bit: 0x 00 80 00 00
+      instruction = instruction | (l << 22); // l bit: 0x 00 40 00 00
+    }
+
+    // finally, push the values into the array
+    instructions.push(reverseEndianness(instruction));
+    if (l) {
+      instructions.push(reverseEndianness(rn));
     }
   }
-  undoStorage = input; // no errors, store in undo
 
-  // print all instructions to console. may change later for copy paste powers
+  // instructions should now contain all the bytes to be stored
+
+  // print out all instructions for debugging purposes.
   for (var i = 0; i < instructions.length; i++) {
     console.log(hexToStr(0x100000 + i*4, 6) + ": " + hexToStr(instructions[i]));
   }
   
-  // restart the VM
-  boot();
+  boot(); // reset PC and other things
 
-  // load assembled code into the rom memory
+  // load assembled code into the rom
   if (instructions.length > 0x7fff)
-    return error("too many instructions(" + instructions.length + "), cannot fit into rom chip of 32 KiB");
+    return error("only 32 KB space, this requires " + instructions.length + " bytes");
   for (var i = 0; i < instructions.length; i++) {
     setMemory(0x100000 + i*4, instructions[i], true);
   }
-  // put a sleep instruction in case the rom already had stuff in it
+  // put a sleep instruction at the end
   setMemory(0x100000 + instructions.length*4, 0x00000000, true);
 
-  // clear error without user having to press OK
-  clearError();
+  undoStorage = input; // no errors found in assembling, store input in undo
+  clearError(); // clear error without user having to press OK
 }

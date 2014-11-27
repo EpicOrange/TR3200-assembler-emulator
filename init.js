@@ -36,38 +36,24 @@ function init() {
 
   var defaultInput = [
 //*
-    "MOV %r10, 1 ; assemble me and run!",
-    "STORE %r10, 0",
-    "STORE %r10, 4",
-    "MOV %r1, 4",
-    "MOV %r2, 8",
-    "label:",
-    "LOAD %r8 %r0 ; commas are optional",
-    "LOAD %r9 %r1",
-    "ADD %r10 %r9 %r8",
-    "IFEQ %flags 3",
-    "  JMP end",
-    "STORE %r10 %r2",
-    "ADD %r0 %r0 4",
-    "ADD %r1 %r1 4",
-    "ADD %r2 %r2 4",
-    "JMP label",
-    "end:"
-/*/// test code
-
-    "MOV %r4 21",
-    "MOV %r5 5",
-    "SDIV %r10 %r4 %r5 ; 21 / 5 = 4 + 1",
-    "MOV %r4 21",
-    "MOV %r5 -5",
-    "SDIV %r10 %r4 %r5 ; 21 / -5 = -4 + 1",
-    "MOV %r4 -21",
-    "MOV %r5 5",
-    "SDIV %r10 %r4 %r5 ; -21 / 5 = -4 + -1",
-    "MOV %r4 -21",
-    "MOV %r5 -5",
-    "SDIV %r10 %r4 %r5 ; -21 / -5 = 4 + -1",
-
+    "; assemble me and run!", 
+    "MOV %r0, 1",
+    "MOV %r1, 1",
+    "ADD %r2, %r1, %r0",
+    "STORE %r3, %r2",
+    "ADD %r3, %r3, 4",
+    "MOV %r0, %r1",
+    "MOV %r1, %r2",
+    "IFNEQ %flags, 3",
+    "JMP 0x00100008"
+/*///    default ^   v test code
+    "ADD %r2, %r1, %r0", // 0x02000484 = 33555588 = -2080112638
+    "STORE %r3, %r2",
+    "ADD %r3, %r3, 4",
+    "MOV %r0, %r1",
+    "MOV %r1, %r2",
+    "IFNEQ %flags, 3",
+    "JMP 0x00100008"
 //*/
   ].join("\n");
   document.getElementById("input").value = defaultInput;
