@@ -13,7 +13,7 @@ function error(note) {
   document.getElementById("errorDisplay").innerHTML = note;
   document.getElementById("errorDisplay").style.display = "inline-block";
   document.getElementById("errorOK").style.display = "inline-block";
-  return "error";
+  return note;
 }
 function clearError() {
   document.getElementById("errorDisplay").style.display = "none";
@@ -48,7 +48,7 @@ function numParams(opcode) {
     return error("tried to get number of params of a negative opcode: " + opcode);
   }
 }
-function uint(number) {
+function uint(number) { // todo: check if number is a number. or maybe don't
   return (number >>> 0);
 }
 function reverseEndianness(dword) {

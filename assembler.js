@@ -189,12 +189,12 @@ function assemble(input) {
 
   // load assembled code into the rom
   if (instructions.length > 0x7fff)
-    return error("only 32 KB space, this requires " + instructions.length + " bytes");
+    return error("only 32 KiB space, this requires " + instructions.length + " bytes");
   for (var i = 0; i < instructions.length; i++) {
-    setMemory(0x100000 + i*4, instructions[i], true);
+    VM.memory[0x100000 + i*4] = instructions[i];
   }
   // put a sleep instruction at the end
-  setMemory(0x100000 + instructions.length*4, 0x00000000, true);
+  VM.memory[0x100000 + instructions.length*4] = 0x00000000;
 
   undoStorage = input; // no errors found in assembling, store input in undo
   clearError(); // clear error without user having to press OK

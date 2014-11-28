@@ -6,7 +6,7 @@ function createNewRow(address, index) {
       + hexToStr(address, 6)
       + "</td>"
       + "<td id=\"memory-value-" + index + "\">"
-      + hexToStr(getMemory(address, true))
+      + hexToStr(VM.memory[address])
       + "</td></tr>\n";
 }
 function updateMemoryTable(newAddress) {
@@ -37,6 +37,6 @@ function updateMemoryTable(newAddress) {
     var value = document.getElementById("memory-value-" + i);
     var assignedAddress = currentPos + (i*4);
     address.innerHTML = hexToStr(assignedAddress, 6);
-    value.innerHTML = hexToStr(getMemory(assignedAddress, true));
+    value.innerHTML = hexToStr(VM.memory[assignedAddress]);
   }
 }

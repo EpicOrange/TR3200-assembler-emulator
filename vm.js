@@ -1,7 +1,6 @@
-var mem_size_ = 1179647; // bytes in 0x000000 to 0x11ffff
-var memory = Array(mem_size_); // all the memory. all of it
+
 /*
-TR3200 v0.4h
+TR3200 v0.4h (TODO change)
 
 Important addresses:
 0x000000-0x01ffff: initial ram
@@ -22,86 +21,102 @@ Currently just doing this:
 0x000002: 0x00
 0x000003: 0x00
 
-so 0x000000: 0x000000ff
+so memory[0x000000]: 0x000000ff
 */
 
-// table supresses warnings; table is true when it's the table fetching a value
-function getMemory(address, table) {
-  if (address < 0x000000 || address > mem_size_)
-    return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
-  if ((address % 4) != 0)
-    warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
-  address -= (address % 4); // align
-  if ( typeof memory[address] == "undefined"
-      || typeof memory[address+1] == "undefined"
-      || typeof memory[address+2] == "undefined"
-      || typeof memory[address+3] == "undefined" ) {
-    if (!table)
-      warning("tried to get undefined ram dword at " + hexToStr(address, 6));
-    return 0x00000000;
-  }
-  var value = memory[address];
-  value = value | (memory[address+1] << 2*4);
-  value = value | (memory[address+2] << 4*4);
-  value = value | (memory[address+3] << 6*4);
-  return (value >>> 0); // this returns a little-endian dword
-}
+/* ANOTHER TODO LIST
 
-// todo get and set rng and clock speed
-function setMemory(address, value, setRom) {
-  if (address < 0x000000 || address > mem_size_)
-    return error("tried to set ram at out-of-bounds address " + hexToStr(address, 6));
-  if ((address % 4) != 0)
-    warning("tried to get dword at non-aligned address " + hexToStr(address, 6));
-  address -= (address % 4); // align
-  if (!setRom && address >= 0x100000 && address <= 0x107fff)
-    return error("tried to set address in rom: " + hexToStr(address, 6));
-  if (typeof value != "number" && isNaN(parseInt(value)))
-    return error("tried to set the non-numeric value " + value
-        + " to address " + hexToStr(address, 6));
-  if (typeof value == "string")
-    value = parseInt(value);
+  setflag
+  move everything into an object. getters and setters are awesome
 
-  if (value > 0xffffffff)
-    return error("tried to set the dword at address " + hexToStr(address, 6)
-        + " to out-of-range value " + hexToStr(value));
-  memory[address+0] = (value >>> 0*4) & 0x000000ff;
-  memory[address+1] = (value >>> 2*4) & 0x000000ff;
-  memory[address+2] = (value >>> 4*4) & 0x000000ff;
-  memory[address+3] = (value >>> 6*4) & 0x000000ff;
+  rewrite these functions:
+    execute (attach cycle counts and look over each instruction to see if changed, also return error)
+    last bit of step to catch execute() returning errors
 
-  // update the user's table if the address is within bounds
-  if (address >= currentPos && address < currentPos + (tableSize*4)) {
-    updateMemoryTable();
-    flashBox("memory", (address - currentPos) / 4);
-  }
-}
-function getRegister(register) {
-  var index = register;
-  if (typeof register != "number") {
-    if (!(register in regNames))
-      return error("Tried to get an invalid register: " + register);
-    index = regNames[register];
-  }
-  return getMemory(0x11ff00 + index*4);
-}
-function setRegister(register, value) {
-  var index = register;
-  if (typeof register != "number") {
-    if (!(register in regNames))
-      return error("Tried to get an invalid register: " + register);
-    index = regNames[register];
-  }
-  setMemory(0x11ff00 + index*4, value);
-  document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
-  flashBox("register", register);
-}
+  functions that should not be functions:
+    sleep(), setFlag()
+  variables that should not be variables:
+    booting, asleep, rnValue (in execute())
+*/
+  // Object.defineProperties(this, { // can't do this since no way to find address
+  //   "memory": {
+  //      "get": function() { ... },
+  //      "set": function() { ... }
+  //   }
+  // });
+
+
+var VM = new function() {
+  this.mem_size = 0x1fffff; // TODO: maybe it shouldn't be writable?
+  this.cycles_used = 0; // cycles passed
+  this.running = 0; // either 0 (not running) or the setInterval return value (running)
+  this._memory = {};
+  this.memory = new Proxy(this._memory, {
+    get: function(object, address) {
+      if (!Number.isInteger(address)) { // address is not an integer
+        if (address in regNames) {
+          address = 0x11ff00 + (regNames[address] * 4); // change address to the register's address
+        } else {
+          return error("tried to get ram at invalid address \"" + hexToStr(address, 6) + "\"");
+        }
+      } else if (address < 0x000000 || address > this.mem_size) { // address is out of bounds
+        return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
+      }
+      if ((address % 4) != 0) { // address is unaligned to 4 bytes
+        warning("tried to get ram at non-aligned address " + hexToStr(address, 6));
+        address -= (address % 4); // realign to lower address
+      }
+      return uint(object[address]);
+    },
+    set: function(object, address, value) {
+      var isRegister = false;
+      if (!Number.isInteger(address)) { // address is not an integer
+        if (address in regNames) {
+          address = 0x11ff00 + (regNames[address] * 4); // change address to the register's address
+          isRegister = true;
+        } else {
+          return error( "tried to set ram at invalid address \"" + hexToStr(address, 6)
+              + "\" to " + hexToStr(value) );
+        }
+      } else if (address < 0x000000 || address > this.mem_size) { // address is out of bounds
+        return error( "tried to set ram at out-of-bounds address " + hexToStr(address, 6)
+             + " to " + hexToStr(value) );
+      } else if (!Number.isInteger(value)) { // value is not an integer
+        return error("tried to set ram at " + hexToStr(address, 6) + " to non-integer value \"" + value + "\"");
+      } else if (value < -2147483648 || value > 0xffffffff) { // value can't fit into a dword
+        return error("tried to set ram at " + hexToStr(address, 6) + " to out-of-bounds value " + hexToStr(value));
+      }
+      if ((address % 4) != 0) { // address is unaligned to 4 bytes
+        warning("tried to set ram at non-aligned address " + hexToStr(address, 6));
+        address -= (address % 4); // realign to lower address
+      }
+      if ( this.running // can't set rom when running (it's rom after all)
+          && address >= 0x100000 && address <= 0x107fff ) {
+        return error("tried to set rom at " + hexToStr(address, 6) + " to " + hexToStr(value));
+      }
+      // set the dword; FIXME does this cause infinite recursion?
+      object[address] = value;
+
+      // if the address is displayed in the table, update the table
+      if (address >= currentPos && address < currentPos + (tableSize*4)) {
+        updateMemoryTable();
+        flashBox("memory", (address - currentPos) / 4);
+      }
+      // if the address is a register, update the table
+      if (isRegister) {
+        document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
+        flashBox("register", register);
+      }
+    }
+  });
+};
+
 function setFlag(index, value) {
   var mask = 1 << index;
   if (value) {
-    setRegister("%flags", getRegister("%flags") | mask); // set
+    VM.memory["%flags"] = VM.memory["%flags"] | mask; // set
   } else {
-    setRegister("%flags", getRegister("%flags") & ~mask); // unset
+    VM.memory["%flags"] = VM.memory["%flags"] & ~mask; // unset
   }
 }
 
@@ -114,17 +129,18 @@ function boot() {
   }
   
   // clear memory. but the specs don't say this is supposed to be done.
-  // memory = Array(mem_size_);
+  // VM.memory = {};
 
   // clear registers
   for (var i = 0; i < 16; i++) {
-    setRegister(i, 0);
+    VM.memory[i] = 0;
   }
 
-  // temporary since no boot config code to run
+  // temporary
   // you could say this is the boot code
   pc = 0x100000;
-  setRegister("%sp", 0x01fffc);
+  cycles_used = 0;
+  VM.memory["%sp"] = 0x01fffc;
 
   asleep = false;
   document.getElementById("%pc").innerHTML = hexToStr(pc, 6);
@@ -164,44 +180,48 @@ function sleep() { // temporary test function
 }
 
 function execute(opcode, params, m, rn, rs, rd) {
-  var rnValue;
+  var rnValue; // either what value of rn is (if rn is a register) or just rn
   if (typeof rn != "undefined")
-    rnValue = (m ? rn : getRegister(rn)) >>> 0;
+    rnValue = uint(m ? rn : VM.memory[rn]);
   var skip = false; // for conditionals
   switch (opcode) {
-  case 0x0: // SLEEP
+  case 0x00: // SLEEP
     sleep();
     break;
-// RET    0x01 Return from subrutine                                    4
-// RFI    0x02 Return from interrupt                                    6
-
+  case 0x01: // RET
+    break;
+  case 0x02: // RFI
+    break;
   case 0x20: // XCHGB
     if (m)
       warning("m bit set while executing XCHGB");
-    var value = getRegister(rn);
-    setRegister(rn, (value << 24) | (value >> 24) | (value & 0x00ffff00));
+    var value = VM.memory[rn];
+    VM.memory[rn] = (value << 24) | (value >> 24) | (value & 0x00ffff00);
+    break;
   case 0x21: // XCHGW
     if (m)
       warning("m bit set while executing XCHGW");
-    var value = getRegister(rn);
-    setRegister(rn, (value << 16) | (value >> 16));
+    var value = VM.memory[rn];
+    VM.memory[rn] = (value << 16) | (value >> 16);
+    break;
   case 0x22: // GETPC
     if (m)
       warning("m bit set while executing GETPC");
-    setRegister(rn, pc + 4);
+    VM.memory[rn] = pc + 4;
+    break;
   case 0x23: // POP
     if (m)
       warning("m bit set while executing POP");
-    var address = getRegister("%sp") + 4;
-    setRegister(rn, getMemory(address));
-    setRegister("%sp", address);
+    var address = VM.memory["%sp"] + 4;
+    VM.memory[rn] = VM.memory[address];
+    VM.memory["%sp"] = address;
     break;
   case 0x24: // PUSH
     if (m)
       warning("m bit set while executing PUSH");
-    var address = getRegister("%sp");
-    setMemory(address, rn);
-    setRegister("%sp", address - 4);
+    var address = VM.memory["%sp"];
+    VM.memory[address] = rn;
+    VM.memory["%sp"] = address - 4;
     break;
   case 0x25: // JMP
     pc = rnValue & 0xfffffffc;
@@ -209,8 +229,8 @@ function execute(opcode, params, m, rn, rs, rd) {
     break;
   case 0x26: // CALL
     pc = rnValue & 0xfffffffc;
-    setMemory(address, rnValue);
-    setRegister("%sp", address - 4);
+    VM.memory[address] = rnValue;
+    VM.memory["%sp"] = address - 4;
     pc -= 4;
     break;
   case 0x27: // RJMP
@@ -219,160 +239,159 @@ function execute(opcode, params, m, rn, rs, rd) {
     break;
   case 0x28: // RCALL
     pc += (rnValue & 0xfffffffc);
-    setMemory(address, rnValue);
-    setRegister("%sp", address - 4);
+    VM.memory[address] = rnValue;
+    VM.memory["%sp"] = address - 4;
     pc -= 4;
     break;
-
-// INT    0x29 Software Interrupt                                       6
-
+  case 0x29: // INT
+    break;
   case 0x40: // MOV
-    setRegister(rd, rnValue);
+    VM.memory[rd] = rnValue;
     break;
   case 0x41: // SWP
     if (m)
       warning("m bit set while executing SWP");
-    var temp = getRegister(rd);
-    setRegister(rd, rn);
-    setRegister(rn, temp);
+    var temp = VM.memory[rd];
+    VM.memory[rd] = rn;
+    VM.memory[rn] = temp;
     break;
   case 0x42: // NOT
-    setRegister(rd, ~rnValue);
+    VM.memory[rd] = ~rnValue;
     break;
   case 0x43: // SIGXB
-    setRegister(rd, ((rnValue >> 7) ? rnValue | 0xffffff00 : rnValue));
+    VM.memory[rd] = ((rnValue >> 7) ? rnValue | 0xffffff00 : rnValue);
     break;
   case 0x44: // SIGXW
-    setRegister(rd, ((rnValue >> 15) ? rnValue | 0xffff0000 : rnValue));
+    VM.memory[rd] = ((rnValue >> 15) ? rnValue | 0xffff0000 : rnValue);
     break;
   case 0x45: // LOAD
-    setRegister(rd, getMemory(rnValue));
+    VM.memory[rd] = VM.memory[rnValue];
     break;
   case 0x46: // LOADW
-    setRegister(rd, getMemory(rnValue) & 0xffff);
+    VM.memory[rd] = VM.memory[rnValue] & 0xffff;
     break;
   case 0x47: // LOADB
-    setRegister(rd, getMemory(rnValue) & 0xff);
+    VM.memory[rd] = VM.memory[rnValue] & 0xff;
     break;
   case 0x48: // STORE
-    setMemory(rnValue, getRegister(rd));
+    VM.memory[rnValue] = VM.memory[rd];
     break;
   case 0x49: // STOREW
-    setMemory(rnValue, getRegister(rd) & 0xffff);
+    VM.memory[rnValue] = VM.memory[rd] & 0xffff;
     break;
   case 0x4a: // STOREB
-    setMemory(rnValue, getRegister(rd) & 0xff);
+    VM.memory[rnValue] = VM.memory[rd] & 0xff;
     break;
   case 0x4b: // IFEQ
-    skip = rnValue != getRegister(rd);
+    skip = rnValue != VM.memory[rd];
     break;
   case 0x4c: // IFNEQ
-    skip = rnValue == getRegister(rd);
+    skip = rnValue == VM.memory[rd];
     break;
   case 0x4d: // IFL
-    skip = rnValue >= getRegister(rd);
+    skip = rnValue >= VM.memory[rd];
     break;
   case 0x4e: // IFSL
-    skip = (rnValue >> 0) >= (getRegister(rd) >> 0);
+    skip = (rnValue >> 0) >= (VM.memory[rd] >> 0);
     break;
   case 0x4f: // IFLE
-    skip = rnValue > getRegister(rd);
+    skip = rnValue > VM.memory[rd];
     break;
   case 0x50: // IFSLE
-    skip = (rnValue >> 0) > (getRegister(rd) >> 0);
+    skip = (rnValue >> 0) > (VM.memory[rd] >> 0);
     break;
   case 0x51: // IFBITS
-    skip = (rnValue & getRegister(rd)) == 0;
+    skip = (rnValue & VM.memory[rd]) == 0;
     break;
   case 0x52: // IFCLEAR
-    skip = (rnValue & getRegister(rd)) != 0;
+    skip = (rnValue & VM.memory[rd]) != 0;
     break;
   case 0x53: // JMP
-    pc = (rnValue + getRegister(rd)) & 0xfffffffc;
+    pc = (rnValue + VM.memory[rd]) & 0xfffffffc;
     break;
   case 0x54: // CALL
-    pc = (rnValue + getRegister(rd)) & 0xfffffffc;
-    setMemory(address, rnValue);
-    setRegister("%sp", address - 4);
+    pc = (rnValue + VM.memory[rd]) & 0xfffffffc;
+    VM.memory[address] = rnValue;
+    VM.memory["%sp"] = address - 4;
     break;
   case 0x80: // AND
-    setRegister(rd, getRegister(rs) & rnValue);
+    VM.memory[rd] = VM.memory[rs] & rnValue;
     break;
   case 0x81: // OR
-    setRegister(rd, getRegister(rs) | rnValue);
+    VM.memory[rd] = VM.memory[rs] | rnValue;
     break;
   case 0x82: // XOR
-    setRegister(rd, getRegister(rs) ^ rnValue);
+    VM.memory[rd] = VM.memory[rs] ^ rnValue;
     break;
   case 0x83: // BITC
-    setRegister(rd, getRegister(rs) & ~rnValue);
+    VM.memory[rd] = VM.memory[rs] & ~rnValue;
     break;
   case 0x84: // ADD
   case 0x85: // ADDC
-    var value = getRegister(rs) + rnValue;
+    var value = VM.memory[rs] + rnValue;
     setFlag(0, value > 0xffffffff); // carry flag
-    setFlag( 1, (((value & 0x80000000) ^ (rnValue & 0x80000000)) ^ ((rnValue & 0x80000000) ^ (getRegister(rs) & 0x80000000))) >>> 31); // overflow flag
+    setFlag( 1, (((value & 0x80000000) ^ (rnValue & 0x80000000)) ^ ((rnValue & 0x80000000) ^ (VM.memory[rs] & 0x80000000))) >>> 31); // overflow flag
     value &= 0xffffffff;
     if (opcode == 0x85) // ADDC
-      value += getRegister("%flags") & 1;
-    setRegister(rd, value >>> 0);
+      value += VM.memory["%flags"] & 1;
+    VM.memory[rd] = uint(value);
     break;
   case 0x86: // SUB
   case 0x87: // SUBB
-    var c = opcode == 0x86 ? 1 : (getRegister("%flags") & 1);
-    var value = (getRegister(rs) + c + ~rnValue) >>> 0;
-    setFlag(0, getRegister(rs) < rnValue); // carry flag
-    setFlag( 1, ((value >>> 31) ^ (rnValue >>> 31)) ^ ((rnValue >>> 31) ^ (getRegister(rs) >>> 31)) ); // overflow flag
-    setRegister(rd, value >>> 0);
+    var c = opcode == 0x86 ? 1 : (VM.memory["%flags"] & 1);
+    var value = uint(VM.memory[rs] + c + ~rnValue);
+    setFlag(0, VM.memory[rs] < rnValue); // carry flag
+    setFlag( 1, ((value >>> 31) ^ (rnValue >>> 31)) ^ ((rnValue >>> 31) ^ (VM.memory[rs] >>> 31)) ); // overflow flag
+    VM.memory[rd] = uint(value);
     break;
   case 0x88: // RSB
   case 0x89: // RSBB
-    var c = opcode == 0x88 ? 1 : (getRegister("%flags") & 1);
-    var value = (rnValue + c + ~getRegister(rs)) >>> 0;
-    setFlag(0, rnValue < getRegister(rs)); // carry flag
-    setFlag( 1, ((value >>> 31) ^ (getRegister(rs) >>> 31)) ^ ((getRegister(rs) >>> 31) ^ (rnValue >>> 31)) ); // overflow flag
-    setRegister(rd, value >>> 0);
+    var c = opcode == 0x88 ? 1 : (VM.memory["%flags"] & 1);
+    var value = uint(rnValue + c + ~VM.memory[rs]);
+    setFlag(0, rnValue < VM.memory[rs]); // carry flag
+    setFlag( 1, ((value >>> 31) ^ (VM.memory[rs] >>> 31)) ^ ((VM.memory[rs] >>> 31) ^ (rnValue >>> 31)) ); // overflow flag
+    VM.memory[rd] = uint(value);
     break;
   case 0x8a: // LLS
-    var value = getRegister(rs) << rnValue;
-    setRegister(rd, value >>> 0);
+    var value = VM.memory[rs] << rnValue;
+    VM.memory[rd] = uint(value);
     break;
   case 0x8b: // LRS
-    var value = getRegister(rs) >>> rnValue;
-    setRegister(rd, value);
+    var value = VM.memory[rs] >>> rnValue;
+    VM.memory[rd] = value;
     break;
   case 0x8c: // ARS
-    var value = getRegister(rs) >>> rnValue;
-    if (getRegister(rs) >>> 31)
+    var value = VM.memory[rs] >>> rnValue;
+    if (VM.memory[rs] >>> 31)
       value = value | (0xffffffff << (32 - rnValue));
-    setRegister(rd, value);
+    VM.memory[rd] = value;
     break;
   case 0x8d: // ROTL
-    var value = getRegister(rs) << rnValue;
-    if (getRegister(rs) >>> 31)
+    var value = VM.memory[rs] << rnValue;
+    if (VM.memory[rs] >>> 31)
       value = value | 0x00000001;
-    setRegister(rd, value);
+    VM.memory[rd] = value;
     break;
   case 0x8e: // ROTR
-    var value = getRegister(rs) >>> rnValue;
-    if (getRegister(rs) & 1)
+    var value = VM.memory[rs] >>> rnValue;
+    if (VM.memory[rs] & 1)
       value = value | 0x80000000;
-    setRegister(rd, value);
+    VM.memory[rd] = value;
     break;
   case 0x8f: // MUL
-    var a = getRegister(rs);
+    var a = VM.memory[rs];
     var b = rnValue;
     var value = (a & 0xffff) * (b & 0xffff); // 1st digit
     var y = (a >>> 16) * (b >>> 16); // 2nd digit
     var temp = ((a & 0xffff) * (b >>> 16)) + ((a >>> 16) * (b & 0xffff)); // middle
     value += (temp & 0xffff) << 16;
     y += temp >>> 16;
-    setRegister("%y", y >>> 0);
-    setRegister(rd, value >>> 0);
+    VM.memory["%y"] = uint(y);
+    VM.memory[rd] = uint(value);
     break;
   case 0x90: // SMUL
     // booth's multiplication algorithm
-    var a = getRegister(rs); // multiplicand
+    var a = VM.memory[rs]; // multiplicand
     var y = 0;
     var value = rnValue;
     var b = 0; // bit
@@ -386,153 +405,113 @@ function execute(opcode, params, m, rn, rs, rd) {
       var temp = y >>> 31;
       b = value & 1;
       value = (value >>> 1) | ((y & 1) << 31);
-      y = (y >>> 1) | ((temp << 31) >>> 0);
+      y = (y >>> 1) | uint(temp << 31);
     }
-    setRegister("%y", y >>> 0);
-    setRegister(rd, value >>> 0);
+    VM.memory["%y"] = uint(y);
+    VM.memory[rd] = uint(value);
     break;
   case 0x91: // DIV
     setFlag(2, (rnValue == 0))
     if (rnValue == 0) break;
-    var y = getRegister(rs) % rnValue;
-    var value = getRegister(rs) / rnValue;
-    setRegister("%y", y >>> 0);
-    setRegister(rd, value >>> 0);
+    var y = VM.memory[rs] % rnValue;
+    var value = VM.memory[rs] / rnValue;
+    VM.memory["%y"] = uint(y;
+    VM.memory[rd] = uint(value);
     break;
   case 0x92: // SDIV
     setFlag(2, (rnValue == 0))
     if (rnValue == 0) break;
-    var a = (getRegister(rs) >>> 31) ? ~getRegister(rs) + 1 : getRegister(rs);
+    var a = (VM.memory[rs] >>> 31) ? ~VM.memory[rs] + 1 : VM.memory[rs];
     var b = (rnValue >>> 31) ? ~rnValue + 1 : rnValue;
-    var y = (a % b) >>> 0;
-    var value = Math.floor(a / b) >>> 0;
-    if (getRegister(rs) >>> 31)
+    var y = uint(a % b);
+    var value = uint(Math.floor(a / b));
+    if (VM.memory[rs] >>> 31)
       y = ~y + 1;
-    if ((getRegister(rs) >>> 31) ^ (rnValue >>> 31))
+    if ((VM.memory[rs] >>> 31) ^ (rnValue >>> 31))
       value = ~value + 1;
-    setRegister("%y", y >>> 0);
-    setRegister(rd, value >>> 0);
+    VM.memory["%y"] = uint(y);
+    VM.memory[rd] = uint(value);
     break;
   case 0x93: // LOAD
-    setRegister(rd, getMemory(getRegister(rs) + rnValue));
+    VM.memory[rd] = VM.memory[VM.memory[rs] + rnValue];
     break;
   case 0x94: // LOADW
-    setRegister(rd, getMemory(getRegister(rs) + rnValue) & 0xffff);
+    VM.memory[rd] = VM.memory[VM.memory[rs] + rnValue] & 0xffff;
     break;
   case 0x95: // LOADB
-    setRegister(rd, getMemory(getRegister(rs) + rnValue) & 0xff);
+    VM.memory[rd] = VM.memory[VM.memory[rs] + rnValue] & 0xff;
     break;
   case 0x96: // STORE
-    setMemory(getRegister(rs) + rnValue, getRegister(rd));
+    VM.memory[VM.memory[rs] + rnValue] = VM.memory[rd];
     break;
   case 0x97: // STOREW
-    setMemory(getRegister(rs) + rnValue, getRegister(rd) & 0xffff);
+    VM.memory[VM.memory[rs] + rnValue] = VM.memory[rd] & 0xffff;
     break;
   case 0x98: // STOREB
-    setMemory(getRegister(rs) + rnValue, getRegister(rd) & 0xff);
+    VM.memory[VM.memory[rs] + rnValue] = VM.memory[rd] & 0xff;
     break;
   default:
     console.log("unimplemented opcode: 0x" + opcode.toString(16));
   }
-  if (skip) {
+  if (skip) { // skipping the next instruction
     do {
       pc += 4;
-      var nextOp = getMemory(pc) & 0xff;
-    } while (nextOp >= 0x4b && nextOp <= 0x52);
+      var nextOp = VM.memory[pc] & 0xff;
+    } while (nextOp >= 0x4b && nextOp <= 0x52); // keep skipping if instructions todo: why keep skipping ifs?
   }
 }
 
 function step() {
-  if (asleep) // this is temporary, (hopefully)
+  if (asleep) // todo: this is a temporary thing
     return;
-  var instruction = getMemory(pc); // reminder: instructions are in little-endian
-  var opcode = instruction & 0xff;
-  var parameters = numArgs(opcode); // number of parameters
-  var m = (instruction & 0x00008000) >>> 15;
-  var rn = undefined, rs = undefined, rd = undefined;
+  var instruction = VM.memory[pc]; // little-endian
 
   // update the table
-  // todo: also show the assembly code version, e.g. 0xd0018040 => MOV 0x00000010 %sp
   document.getElementById("%pc").innerHTML = hexToStr(pc, 6);
   document.getElementById("currentInstruction").innerHTML = hexToStr(instruction);
 
-  // this entire switch is for extracting rn, rs, and rd from the instruction.
-  // there's probably a more compact and less readable way to do this
+  // get opcode and params
+  var opcode = instruction & 0xff;
+  var parameters = numParams(opcode);
+  var m = (instruction & 0x00800000) != 0;
+  var l = (instruction & 0x00400000) != 0;
+  var rn, rs, rd;
+  var rnLimit = 0x3FFFFF;
+
   switch (parameters) {
   case 3:
-    rs = (instruction & 0xf0000000) >>> 7*4;
-    rd = (instruction & 0x0f000000) >>> 6*4;
-    if (m) {
-      if ((instruction & 0x00ff7f00) == 0x00004000) {
-        pc += 4;
-        rn = getMemory(pc);
-      } else {
-        rn = ((instruction & 0x00ff0000) >>> 4*4)
-           | ((instruction & 0x00007f00) >>> 0*4);
-      }
-    } else {
-      rn = (instruction & 0x000f0000) >>> 4*4;
-    }
-    break;
+    rs = ((instruction & 0x00c00000) >> 22)
+       | ((instruction & 0x00000300) >> 6);
   case 2:
-    rd = (instruction & 0x0f000000) >>> 6*4;
-    if (m) {
-      if ((instruction & 0xf0ff7f00) == 0x00004000) {
-        pc += 4;
-        rn = getMemory(pc);
-      } else {
-        rn = ((instruction & 0xf0000000) >>> 7*4)
-           | ((instruction & 0x00ff0000) >>> 3*4)
-           | ((instruction & 0x00007f00) << 1*4);
-      }
-    } else {
-      rn = (instruction & 0xf0000000) >>> 7*4;
-    }
-    break;
+    rd = (instruction & 0x00003c00) >> 10;
   case 1:
-    if (m) {
-      if ((instruction & 0xffff7f00) == 0x00004000) {
+    if (m && l) {
         pc += 4;
-        rn = getMemory(pc);
-      } else {
-        rn = ((instruction & 0xff000000) >>> 6*4)
-           | ((instruction & 0x00ff0000) >>> 2*4)
-           | ((instruction & 0x00007f00) << 2*4);
-      }
+        rn = VM.memory[pc];
     } else {
-      rn = (instruction & 0x0f000000) >>> 6*4;
+      rn = ((instruction & 0x000f0000) >>> 8)
+         | ((instruction & 0xff000000) >>> 24);
     }
-    break;
-  case 0:
-    break;
   }
 
-  var operation = "???"; // text form of the operation
+  // display text form of this instruction on the table
+  var text = "???";
   if (opcode in opcodes2) {
-    operation = opcodes2[opcode];
-    if (typeof rd != "undefined")
-      operation += " " + regNames2[rd];
-    if (typeof rs != "undefined")
-      operation += " " + regNames2[rs];
-    if (typeof rn != "undefined")
-      operation += " " + (m ? hexToStr(rn) : regNames2[rn]);
+    text = opcodes2[opcode]
+    switch (parameters) {
+    case 3:
+      text += " " + regNames2[rd];
+      text += ", " + regNames2[rs];
+      text += ", " + (m ? hexToStr(rn) : regNames2[rn]);
+    case 2:
+      text += " " + regNames2[rd];
+      text += ", " + (m ? hexToStr(rn) : regNames2[rn]);
+    case 1:
+      text += " " + (m ? hexToStr(rn) : regNames2[rn]);
   }
-  document.getElementById("currentInstructionText").innerHTML = operation;
+  document.getElementById("currentInstructionText").innerHTML = text;
 
-  // debug code
-  // var debugText = "PC: " + hexToStr(pc), 6) + "; read instruction " + hexToStr(instruction) + " (" + operation + ")\n\t";
-  // debugText += "opcode: " + hexToStr(opcode, 2) + "; ";
-  // debugText += "m: " + (m ? "true; " : "false; ");
-  // if (typeof rn != "undefined")
-  //   debugText += "rn: " + (m ? hexToStr(rn) : regNames2[rn]) + "; ";
-  // if (typeof rs != "undefined")
-  //   debugText += "rs: " + regNames2[rs] + "; ";
-  // if (typeof rd != "undefined")
-  //   debugText += "rd: " + regNames2[rd] + "; ";
-  // console.log(debugText);
-
-  // todo: this actually doesn't work since execute doesn't return anything
-  var isError = execute(opcode, parameters, m, rn, rs, rd) == "error";
+  var isError = execute(opcode, parameters, m, rn, rs, rd) != undefined;
   pc += 4;
   if (isError && running) {
     pause();
@@ -551,22 +530,6 @@ Subsequent arguments are passed on the stack. Function arguments of a procedural
 %y, %ia and %flags special registers must be preserved.
 %bp register MUST be preserved being pushed to the stack before the extra arguments by the CALLER. %bp takes the value of %sp after pushing the extra arguments.
 CALLEE function/subroutine can use %bp + n to read extra arguments, and %bp - n for local variable. Where n = (number of parameter - 5) * 4.
-
-instructions:
-31                                    0
-000o oooo xxxx xxxx xxxx xxxx xxxx xxxx (0 parameters)
-001o oooo Mxxx xxxx xxxx xxxx xxxx nnnn (1 parameter)
-01oo oooo Mxxx xxxx xxxx xxxx nnnn dddd (2 parameters)
-1ooo oooo Mxxx xxxx xxxx nnnn ssss dddd (3 parameters)
-first 2 opcode bits determine number of parameters
-
-o: opcode
-x: ignored
-M: indicates that n is an immediate value 
-   (and occupies the x's to the left)
-n: source register
-s: second source register
-d: target register
 
 OPCODES:
 0 parameters:

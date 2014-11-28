@@ -1,3 +1,4 @@
+// todo: rewrite
 function parseAsHex(input, code, bigendian) {
   var str = input.replace(/0x/g, ""); // remove all the 0x from 0xffffffff
   if (!str.match(/^[\s0-9a-f]+$/gi)) // make sure only hex
@@ -76,10 +77,10 @@ function parse(input) {
   if (instructions.length > 0x7fff)
     return error("too many instructions(" + instructions.length + ", cannot fit into rom chip of 32 kib");
   for (var i = 0; i < instructions.length; i++) {
-    setMemory(0x100000 + i*4, instructions[i], true);
+    VM.memory[0x100000 + i*4] = instructions[i];
   }
   // put a sleep instruction in case the rom already had stuff in it
-  setMemory(0x100000 + instructions.length*4, 0x00000000, true);
+  VM.memory[0x100000 + instructions.length*4] = 0x00000000;
 
   // clear error without user having to press OK
   clearError();
