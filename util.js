@@ -53,8 +53,8 @@ function uint(number) { // todo: check if number is a number. or maybe don't
 }
 function reverseEndianness(dword) {
   dword = uint(dword);
-  var reversed = (dword & 0xff009900) >> 24;
-  reversed = reversed | (dword & 0xff0000) >> 8;
+  var reversed = (dword & 0xff000000) >>> 24;
+  reversed = reversed | (dword & 0xff0000) >>> 8;
   reversed = reversed | (dword & 0xff00) << 8;
   reversed = reversed | (dword & 0xff) << 24;
   return reversed;

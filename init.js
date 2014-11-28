@@ -37,23 +37,16 @@ function init() {
   var defaultInput = [
 //*
     "; assemble me and run!", 
-    "MOV %r0, 1",
     "MOV %r1, 1",
+    "STORE %r3, %r2",
+    "ADD %r3, %r3, 4",
+    "MOV %r0, %r1",
+    "MOV %r1, %r2",
     "ADD %r2, %r1, %r0",
-    "STORE %r3, %r2",
-    "ADD %r3, %r3, 4",
-    "MOV %r0, %r1",
-    "MOV %r1, %r2",
-    "IFNEQ %flags, 3",
-    "JMP 0x00100008"
+    "IFEQ %flags, 0",
+    "JMP 0x00100004"
 /*///    default ^   v test code
-    "ADD %r2, %r1, %r0", // 0x02000484 = 33555588 = -2080112638
-    "STORE %r3, %r2",
-    "ADD %r3, %r3, 4",
-    "MOV %r0, %r1",
-    "MOV %r1, %r2",
-    "IFNEQ %flags, 3",
-    "JMP 0x00100008"
+
 //*/
   ].join("\n");
   document.getElementById("input").value = defaultInput;

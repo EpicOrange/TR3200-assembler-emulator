@@ -14,9 +14,9 @@ Important addresses: // TODO: check for update
 */
 
 /* ANOTHER TODO LIST
-
-  setflag
-  move everything into an object. getters and setters are awesome
+  check if %sp is correct in starting at 0x1fffc
+  make sure most >> are >>>
+  move run and stuff into the VM object  
   memory_control.js rewrite
   parser.js rewrite
 
@@ -325,10 +325,12 @@ function execute(opcode, params, m, rn, rs, rd) {
   case 0x85: // ADDC
     var value = VM.memory[rs] + rnValue;
     setFlag(0, value > 0xffffffff); // carry flag
-    setFlag( 1, (((value & 0x80000000) ^ (rnValue & 0x80000000)) ^ ((rnValue & 0x80000000) ^ (VM.memory[rs] & 0x80000000))) >>> 31); // overflow flag
+    setFlag(1, ( ((value & 0x80000000) ^ (rnValue & 0x80000000))
+        ^ ((rnValue & 0x80000000) ^ (VM.memory[rs] & 0x80000000)) ) >>> 31); // overflow flag
     value &= 0xffffffff;
-    if (opcode == 0x85) // ADDC
+    if (opcode == 0x85) { // ADDC
       value += VM.memory["%flags"] & 1;
+    }
     VM.memory[rd] = uint(value);
     break;
   case 0x86: // SUB
@@ -336,7 +338,8 @@ function execute(opcode, params, m, rn, rs, rd) {
     var c = opcode == 0x86 ? 1 : (VM.memory["%flags"] & 1);
     var value = uint(VM.memory[rs] + c + ~rnValue);
     setFlag(0, VM.memory[rs] < rnValue); // carry flag
-    setFlag( 1, ((value >>> 31) ^ (rnValue >>> 31)) ^ ((rnValue >>> 31) ^ (VM.memory[rs] >>> 31)) ); // overflow flag
+    setFlag( 1, ((value >>> 31) ^ (rnValue >>> 31))
+        ^ ((rnValue >>> 31) ^ (VM.memory[rs] >>> 31)) ); // overflow flag
     VM.memory[rd] = uint(value);
     break;
   case 0x88: // RSB
@@ -344,7 +347,8 @@ function execute(opcode, params, m, rn, rs, rd) {
     var c = opcode == 0x88 ? 1 : (VM.memory["%flags"] & 1);
     var value = uint(rnValue + c + ~VM.memory[rs]);
     setFlag(0, rnValue < VM.memory[rs]); // carry flag
-    setFlag( 1, ((value >>> 31) ^ (VM.memory[rs] >>> 31)) ^ ((VM.memory[rs] >>> 31) ^ (rnValue >>> 31)) ); // overflow flag
+    setFlag( 1, ((value >>> 31) ^ (VM.memory[rs] >>> 31))
+        ^ ((VM.memory[rs] >>> 31) ^ (rnValue >>> 31)) ); // overflow flag
     VM.memory[rd] = uint(value);
     break;
   case 0x8a: // LLS
@@ -482,7 +486,7 @@ function step() {
   case 1:
     if (m && l) {
         pc += 4;
-        rn = VM.memory[pc];
+        rn = reverseEndianness(VM.memory[pc]);
     } else {
       rn = ((instruction & 0x000f0000) >>> 8)
          | ((instruction & 0xff000000) >>> 24);
@@ -492,7 +496,7 @@ function step() {
   // display text form of this instruction on the table
   var text = "???";
   if (opcode in opcodes2) {
-    text = opcodes2[opcode];
+    text = opcodes2[opcode].toUpperCase();
     switch (parameters) {
     case 3:
       text += " " + regNames2[rd];
@@ -510,7 +514,7 @@ function step() {
   }
   document.getElementById("currentInstructionText").innerHTML = text;
 
-  var isError = execute(opcode, parameters, m, rn, regNames2[rs], regNames2[rd]) != undefined;
+  var isError = execute(opcode, parameters, m, (m ? rn : regNames2[rn]), regNames2[rs], regNames2[rd]) != undefined;
   pc += 4;
   if (isError && running) {
     pause();
