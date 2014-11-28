@@ -30,7 +30,7 @@ function init() {
   document.getElementById("errorOK").addEventListener('click', clearError, false);
   document.getElementById("jump").addEventListener("click", function() {updateMemoryTable(document.getElementById("jumpValue").value);}, false);
   document.getElementById("jumpValue").value = "000000";
-  document.getElementById("clear").addEventListener("click", function() {memory = Array(mem_size_); boot();}, false);
+  document.getElementById("clear").addEventListener("click", function() {boot();}, false);
 
   setupCanvas();
 

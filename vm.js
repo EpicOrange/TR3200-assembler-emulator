@@ -2,32 +2,24 @@
 /*
 TR3200 v0.4h (TODO change)
 
-Important addresses:
+Important addresses: // TODO: check for update
 0x000000-0x01ffff: initial ram
 0x000000-0x0fffff: maximum ram
 0x100000-0x107fff: rom
 0x110000-0x112000: devices (max 32 devices)
 0x11e040:          RNG
 0x11e050:          clock speed 
-0x11ff00-0x11ffff: registers
+0x11ff00-0x11ffff: registers // FIXME that can't be right: 64 registers?
 
-*/
-
-
-/*
-Currently just doing this:
-0x000000: 0xff < reference this address for the dword
-0x000001: 0x00
-0x000002: 0x00
-0x000003: 0x00
-
-so memory[0x000000]: 0x000000ff
 */
 
 /* ANOTHER TODO LIST
 
   setflag
   move everything into an object. getters and setters are awesome
+  memory_control.js rewrite
+  parser.js rewrite
+
 
   rewrite these functions:
     execute (attach cycle counts and look over each instruction to see if changed, also return error)
@@ -53,13 +45,15 @@ var VM = new function() {
   this._memory = {};
   this.memory = new Proxy(this._memory, {
     get: function(object, address) {
-      if (!Number.isInteger(address)) { // address is not an integer
+      if (!Number.isInteger(parseInt(address))) { // address is not an integer
         if (address in regNames) {
           address = 0x11ff00 + (regNames[address] * 4); // change address to the register's address
         } else {
           return error("tried to get ram at invalid address \"" + hexToStr(address, 6) + "\"");
         }
-      } else if (address < 0x000000 || address > this.mem_size) { // address is out of bounds
+      }
+      address = parseInt(address);
+      if (address < 0x000000 || address > this.mem_size) { // address is out of bounds
         return error("tried to get ram at out-of-bounds address " + hexToStr(address, 6));
       }
       if ((address % 4) != 0) { // address is unaligned to 4 bytes
@@ -69,16 +63,16 @@ var VM = new function() {
       return uint(object[address]);
     },
     set: function(object, address, value) {
-      var isRegister = false;
-      if (!Number.isInteger(address)) { // address is not an integer
+      if (!Number.isInteger(parseInt(address))) { // address is not an integer
         if (address in regNames) {
           address = 0x11ff00 + (regNames[address] * 4); // change address to the register's address
-          isRegister = true;
         } else {
           return error( "tried to set ram at invalid address \"" + hexToStr(address, 6)
               + "\" to " + hexToStr(value) );
         }
-      } else if (address < 0x000000 || address > this.mem_size) { // address is out of bounds
+      }
+      address = parseInt(address);
+      if (address < 0x000000 || address > this.mem_size) { // address is out of bounds
         return error( "tried to set ram at out-of-bounds address " + hexToStr(address, 6)
              + " to " + hexToStr(value) );
       } else if (!Number.isInteger(value)) { // value is not an integer
@@ -103,9 +97,10 @@ var VM = new function() {
         flashBox("memory", (address - currentPos) / 4);
       }
       // if the address is a register, update the table
-      if (isRegister) {
-        document.getElementById(regNames2[index]).innerHTML = hexToStr(value);
-        flashBox("register", register);
+      if (address >= 0x11ff00 && address <= 0x11ff40) {
+        var registerName = regNames2[(address - 0x11ff00) / 4];
+        document.getElementById(registerName).innerHTML = hexToStr(value);
+        flashBox("register", registerName);
       }
     }
   });
@@ -133,7 +128,7 @@ function boot() {
 
   // clear registers
   for (var i = 0; i < 16; i++) {
-    VM.memory[i] = 0;
+    VM.memory[0x11ff00 + (i * 4)] = 0;
   }
 
   // temporary
@@ -415,7 +410,7 @@ function execute(opcode, params, m, rn, rs, rd) {
     if (rnValue == 0) break;
     var y = VM.memory[rs] % rnValue;
     var value = VM.memory[rs] / rnValue;
-    VM.memory["%y"] = uint(y;
+    VM.memory["%y"] = uint(y);
     VM.memory[rd] = uint(value);
     break;
   case 0x92: // SDIV
@@ -473,8 +468,8 @@ function step() {
   // get opcode and params
   var opcode = instruction & 0xff;
   var parameters = numParams(opcode);
-  var m = (instruction & 0x00800000) != 0;
-  var l = (instruction & 0x00400000) != 0;
+  var m = (instruction & 0x00008000) != 0;
+  var l = (instruction & 0x00004000) != 0;
   var rn, rs, rd;
   var rnLimit = 0x3FFFFF;
 
@@ -497,21 +492,25 @@ function step() {
   // display text form of this instruction on the table
   var text = "???";
   if (opcode in opcodes2) {
-    text = opcodes2[opcode]
+    text = opcodes2[opcode];
     switch (parameters) {
     case 3:
       text += " " + regNames2[rd];
       text += ", " + regNames2[rs];
       text += ", " + (m ? hexToStr(rn) : regNames2[rn]);
+      break;
     case 2:
       text += " " + regNames2[rd];
       text += ", " + (m ? hexToStr(rn) : regNames2[rn]);
+      break;
     case 1:
       text += " " + (m ? hexToStr(rn) : regNames2[rn]);
+      break;
+    }
   }
   document.getElementById("currentInstructionText").innerHTML = text;
 
-  var isError = execute(opcode, parameters, m, rn, rs, rd) != undefined;
+  var isError = execute(opcode, parameters, m, rn, regNames2[rs], regNames2[rd]) != undefined;
   pc += 4;
   if (isError && running) {
     pause();
