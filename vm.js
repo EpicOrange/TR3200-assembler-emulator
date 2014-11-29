@@ -3,7 +3,7 @@
 TR3200 v0.4.0
 Computer is v0.4.9
 
-Important addresses: // TODO: check for update
+Important addresses:
 0x000000-0x01ffff: initial ram
 0x020000-0x0fffff: additional ram
 0x100000-0x107fff: rom
@@ -17,12 +17,12 @@ Important addresses: // TODO: check for update
 
 /* currently, the memory object is like this
 
-  VM.memory[0x100000] = 0xaabbccdd;
-  VM.memory[0x100004] = 0x11223344;
+  VM.memory[0x000000] = 0xaabbccdd;
+  VM.memory[0x000004] = 0x11223344;
 
   address: 
   0x000000: 0xaabbccdd
-        01: 0xcc <== these bytes don't actually exist
+        01: 0xcc <== these bytes are implicit and not actually stored
         02: 0xbb
         03: 0xaa
   0x000004: 0x11223344
@@ -30,9 +30,19 @@ Important addresses: // TODO: check for update
         06: 0x22
         07: 0x11
 
+  fetching VM.memory[0x100003] will return 0x223344aa
+
 */
 
 /* ANOTHER TODO LIST
+  
+  make memory table resize correctly: see resizeFunction in init() and see memorycontrol.js
+
+  commit message: "UI overhaul, also fixed some bugs and made assembler check number of params"
+
+
+
+
   rewrite execute
     attach cycle counts
     look over each instruction to see if changed
@@ -44,16 +54,26 @@ Important addresses: // TODO: check for update
 
   specifications say the vm has four internal devices: 
       https://github.com/trillek-team/trillek-computer#pit-programmable-interval-timer
+
+  ui changes:
+    add line numbers to input
+    no need to use zoom
 */
 
 var VM = new function() {
   this.mem_size = 0x1fffff; // TODO: maybe it shouldn't be writable?
+  Object.defineProperty(this, 'mem_size', {
+    configurable: false,
+    writable: false,
+    value: 0x1fffff
+  });
   this.cycles_used = 0; // cycles passed
   this.running = 0; // either 0 (not running) or the setInterval return value (running)
   this.pc = 0; // PC register (has no address)
   this._memory = {};
   this.memory = new Proxy(this._memory, {
-    get: function(object, address) { // get dword from address+0 to address+3 (address+0 being LSB)
+    // get dword from address+0 to address+3 (address+0 being LSB)
+    get: function(object, address) {
       if (!Number.isInteger(parseInt(address))) { // address is not an integer
         if (address in regNames) {
           address = 0x11ff00 + (regNames[address] * 4); // change address to the register's address
@@ -79,7 +99,8 @@ var VM = new function() {
         return uint(object[address]);
       }
     },
-    set: function(object, address, value) { // set dword from address+0 to address+3 to value(address+0 being LSB of value)
+    // set dword from address+0 to address+3 to value(address+0 being LSB of value)
+    set: function(object, address, value) {
       if (!Number.isInteger(parseInt(address))) { // address is not an integer
         if (address in regNames) {
           address = 0x11ff00 + (regNames[address] * 4); // change address to the register's address
@@ -162,46 +183,49 @@ var VM = new function() {
       this.running = setInterval(step, 1);
     }
     document.getElementById("run").value = "pause";
-  }
+  };
   this.pause = function() {
     if (this.running) {
       clearInterval(this.running);
       this.running = 0;
     }
     document.getElementById("run").value = "run";
+  };
+  this.clearRam = function() {
+    for (var k in VM._memory) {
+      delete VM._memory[k];
+    }
+  }
+  this.boot = function() {
+    if (VM.running) {
+      VM.pause();
+    }
+    
+    // clear memory. but the specs don't say this is supposed to be done.
+    // VM.clearRam();
+
+    // clear registers by directing editing memory (to avoid table flashing)
+    for (var i = 0; i < 16; i++) {
+      document.getElementById(regNames2[i]).innerHTML = "0x00000000";
+      VM._memory[0x11ff00 + (i * 4)] = 0;
+    }
+
+    // refresh cycle counter
+    VM.cycles_used = 0;
+
+    // temporary
+    // you could say this is the boot code
+    VM.pc = 0x100000;
+    VM._memory[0x11ff34] = 0x0001ffff; // %sp starts at end of RAM
+    document.getElementById("%sp").innerHTML = "0x0001fffc";
+
+    asleep = false;
+    document.getElementById("%pc").innerHTML = hexToStr(VM.pc, 6);
+    document.getElementById("currentInstruction").innerHTML = "N/A";
+    document.getElementById("currentInstructionText").innerHTML = "???";
+    updateMemoryTable();
   }
 };
-
-function boot() {
-  if (VM.running) {
-    VM.pause();
-  }
-  
-  // clear memory. but the specs don't say this is supposed to be done.
-  // VM.memory = {};
-
-  // clear registers by directing editing memory (to avoid table flashing)
-  for (var i = 0; i < 16; i++) {
-    document.getElementById(regNames2[i]).innerHTML = "0x00000000";
-    VM._memory[0x11ff00 + (i * 4)] = 0;
-  }
-
-  // refresh cycle counter
-  VM.cycles_used = 0;
-
-  // temporary
-  // you could say this is the boot code
-  VM.pc = 0x100000;
-  cycles_used = 0;
-  VM._memory[0x11ff34] = 0x0001ffff; // %sp starts at end of RAM
-  document.getElementById("%sp").innerHTML = "0x0001fffc";
-
-  asleep = false;
-  document.getElementById("%pc").innerHTML = hexToStr(VM.pc, 6);
-  document.getElementById("currentInstruction").innerHTML = "N/A";
-  document.getElementById("currentInstructionText").innerHTML = "???";
-  updateMemoryTable();
-}
 
 // TODO: implement interrupts so this isn't needed
 var asleep = false; // temporary test thingy
@@ -505,7 +529,7 @@ function step() {
 
   // update the table
   document.getElementById("%pc").innerHTML = hexToStr(VM.pc, 6);
-  document.getElementById("currentInstruction").innerHTML = hexToStr(instruction);
+  document.getElementById("currentInstruction").innerHTML = hexToStr(reverseEndianness(instruction));
 
   // get opcode and params
   var opcode = instruction & 0xff;

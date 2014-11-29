@@ -1,30 +1,28 @@
 /*
 page looks roughly like this
 
-+--div#container---------------------------------------+
-|                  h1>TR3200 CPU</h1>                  |
-| +----div#input-area------++---div#rom-controls-----+ |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| +------------------------++------------------------+ |
-| +-div#register-container-++--div#memory-container--+ |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| |                        ||                        | |
-| +------------------------++------------------------+ |
-+------------------------------------------------------+
++--div#container----------------------------------------------------+
+| +-div#input-area-+---div#rom-controls---+   +div#memory-container+|
+| |                |                      |   |                    ||
+| |                |                      |   |                    ||
+| |                +div#register-container+   |                    ||
+| |                |                      |   |                    ||
+| |                |                      |   |                    ||
+| |                |                      |   |                    ||
+| |                |                      |   |                    ||
+| |                +----------------------+   |                    ||
+| |                |                          |                    ||
+| |                |                          |                    ||
+| |                |                          |                    ||
+| |                |                          |                    ||
+| |                |                          |                    ||
+| |                |                          |                    ||
+| +----------------+                          +--------------------+|
++-------------------------------------------------------------------+
 
 */
 
 * {
-  background-color: #080;
   color: #8f8;
   font-family: "Trebuchet MS";
   font-size: 12px;
@@ -37,51 +35,27 @@ page looks roughly like this
   padding: 0;
 }
 
+html, body, div#container {
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+}
+
 body {
+  background-image: url("bg.png");
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
   margin: 0 auto;
-}
-
-div#container {
-  margin: 0 auto;
-}
-
-div#input-area, div#rom-controls, div#register-container, div#memory-container {
-  width: 320px;
-  min-width: 320px;
-  max-width: 320px;
-  display: inline-block;
-  vertical-align: top;
-  margin: 2px;
-}
-div#input-area, div#register-container { /* remove this */
-  clear: right;
-}
-div#rom-controls {
-  text-align: left;
-}
-
-h1 {
-  font-size: 48px;
-  font-style: italic;
 }
 
 textarea, select, input {
-  background-color: #dfd;
-  color: #080;
-  border: 1px solid #2f2;
+  background-color: rgba(12, 31, 126, 0.2);
+  color: #2cc82c;
+  border: 1px solid #129912;
   border-radius: 2px;
   text-align: left;
   padding: 0 2px;
-}
-
-textarea#input {
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  height: 70px;
-  min-height: 70px;
-  font-family: "Courier New";
-  font-size: 11px;
 }
 
 input[type="button"] {
@@ -94,23 +68,75 @@ input[type="button"]:active {
   border-style: inset;
 }
 
+div#input-area, div#center-area, div#memory-container {
+  display: inline-block;
+  margin: 2px;
+  vertical-align: top;
+}
+
+div#input-area {
+  width: 32em;
+  top: 0px;
+  left: 0px;
+  height: calc(100% - 4px);
+  float: left;
+}
+
+textarea#input {
+  width: 100%;
+  height: 100%;
+  font-family: "Courier New";
+  font-size: 16px;
+  overflow: hidden;
+  resize: none;
+}
+
+div#center-area {
+  left: calc(32em + 4px);
+  float: left;
+}
+
+div#rom-controls {
+  text-align: left;
+}
+
+
+
+table#registerView {
+  width: 300px;
+}
+div#memory-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: calc(100% - 4px);
+}
+table#memoryView {
+  width: 200px;
+  table-layout: fixed;
+}
+
+div#errorDisplay {
+  color: #F17B35;
+  font-size: 12px;
+}
+
 table {
   border-collapse: collapse;
-  font-size: 16px;
-  width: 320px;
   margin: 0;
 }
 td, th {
-  border: 1px solid #2f2;
+  border: 1px solid #0A549F;
   padding: 0;
   padding-right: 2px;
   height: 24px;
   font-size: 14px;
   text-align: right;
+  color: #6C87F2;
 }
 td:not(.set), th:not(.set) { /* annoying/helpful transition */
   transition: background-color 0.5s linear; 
-  background-color: #080;
+  background-color: transparent;
 }
 td.set, th.set { /* set the transition; it only goes one way */
   transition-duration: 0s;
@@ -122,24 +148,6 @@ tr:last-child th {
 td:nth-child(even), th:nth-child(even), th#currentInstructionText, table#memoryView td {
   font-family: "Courier New";
   color: #fff;
-}
-table#memoryView {
-  table-layout: fixed;
-}
-tbody.memoryButtonContainer td {
-  padding-right: 0;
-}
-input[type="button"].memoryButton { /* TODO make these images or something */
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  border: 1px outset #0c0;
-  border-radius: 0px;
-  background-color: #0c0;
-}
-input[type="button"].memoryButton:active {
-  border-style: inset;
 }
 
 canvas {

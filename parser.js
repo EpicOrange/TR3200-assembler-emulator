@@ -71,7 +71,7 @@ function parse(input) {
   undoStorage = input; // no errors, store in undo
 
   // restart the VM
-  boot();
+  VM.boot();
 
   // load assembled code into the rom memory
   if (instructions.length > 0x7fff)

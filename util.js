@@ -12,12 +12,10 @@ function error(note) {
   console.log("ERROR: " + note);
   document.getElementById("errorDisplay").innerHTML = note;
   document.getElementById("errorDisplay").style.display = "inline-block";
-  document.getElementById("errorOK").style.display = "inline-block";
   VM.pause();
 }
 function clearError() {
   document.getElementById("errorDisplay").style.display = "none";
-  document.getElementById("errorOK").style.display = "none";
 }
 function warning(note) {
   console.log("WARNING: " + note);
@@ -29,12 +27,11 @@ function hexToStr(hex, digits) {
   return "0x" + padZero(hex.toString(16), digits || 8);
 }
 function numParams(opcode) {
-  if (typeof opcode == "string") {
-    if (opcode in opcodes) {
-      opcode = opcodes[opcode];
-    } else {
-      return error("tried to get number of params of an unknown op: " + opcode);
-    }
+  if (typeof opcode == "string" && opcode in opcodes) {
+    opcode = opcodes[opcode];
+  }
+  if (!Number.isInteger(opcode)) {
+    return error("tried to get number of params of an unknown opcode: " + opcode);
   }
   if (opcode >= 0x80) {
     return 3;
@@ -42,11 +39,8 @@ function numParams(opcode) {
     return 2;
   } else if (opcode >= 0x20) {
     return 1;
-  } else if (opcode >= 0x00) {
-    return 0;
-  } else {
-    return error("tried to get number of params of a negative opcode: " + opcode);
   }
+  return 0;
 }
 function uint(number) { // todo: check if number is a number. or maybe don't
   return (number >>> 0);
@@ -72,8 +66,9 @@ function flashBox(type, index) {
   var t = (VM.running ? 100 : 1000);
   switch (type) {
   case "register":
-    if (typeof index == "number")
+    if (Number.isInteger(index)) {
       index = regNames2[index];
+    }
     element = document.getElementById(index);
     break;
   case "memory":

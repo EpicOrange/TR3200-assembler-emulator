@@ -1,5 +1,5 @@
 var currentPos = 0; // address at top of table
-var tableSize = 7; // yes you can change this
+var tableSize = 9; // yes you can change this
 function createNewRow(address, index) {
   return "<tr>"
       + "<td id=\"memory-address-" + index + "\">"
@@ -10,25 +10,36 @@ function createNewRow(address, index) {
       + "</td></tr>\n";
 }
 function updateMemoryTable(newAddress) {
-  if (typeof newAddress != "undefined") {
-    if (typeof newAddress == "string")
+  if (newAddress !== undefined) {
+    if (!Number.isInteger(newAddress)) {
       newAddress = parseInt(newAddress, 16);
-    if (isNaN(parseInt(newAddress, 16)))
-      return error("tried to view memory at a non-numerical address");
-    if (newAddress < 0x000000 || newAddress >= 0xffffff)
-      return error("tried to view memory at an out-of-bounds address: " + hexToStr(newAddress));
-    currentPos = newAddress - (newAddress % 4); // align to memory
+      if (!Number.isInteger(newAddress)) {
+        return error("tried to view memory at a noninteger address " + newAddress);
+      }
+    }
+    if (newAddress < 0x000000) {
+      return error("tried to view memory at an out-of-bounds address: " + hexToStr(newAddress, 6));
+    } else if (newAddress > 0xffffff) {
+      return error("tried to view memory at an out-of-bounds address: " + hexToStr(newAddress + (tableSize * 4), 6));
+    }
+    if (newAddress + (tableSize * 4) > 0xffffff) {
+      newAddress = 0x1000000 - (tableSize * 4);
+    }
+    currentPos = newAddress & 0xfffffc; // align to memory
   }
-  if (currentPos < 0)
+  if (currentPos < 0) {
     currentPos = 0;
+  } else if (currentPos + (tableSize * 4) > 0xffffff) {
+    currentPos = 0x1000000 - (tableSize * 4);
+  }
   var container = document.getElementById("memory-body");
   var rows = container.rows;
-  if (rows.length < tableSize) {
+  if (rows.length < tableSize) { // add rows
     for (var i = rows.length; i < tableSize; i++) {
       document.getElementById("memory-body").innerHTML += createNewRow(i*4, i);
     }
-  } else if (rows.length > tableSize) { // should never happen
-    for (var i = tableSize; i < rows.length; i++) {
+  } else if (rows.length > tableSize) { // delete rows
+    for (var i = rows.length - 1; i >= tableSize; i--) {
       document.getElementById("memory-body").removeChild(rows[i]);
     }
   }

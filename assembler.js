@@ -53,7 +53,7 @@ function assemble(input) {
     if (!op) {
       return error("no op found on line " + lineNumber);
     }
-    op = op[0];
+    op = op[0].toLowerCase();
     if (!(op in opcodes)) {
       return error("Unrecognized op on line " + lineNumber + ": " + op.toUpperCase());
     }
@@ -62,8 +62,18 @@ function assemble(input) {
     // parse parameters
     var parameters = numParams(op);
     var paramList = line.replace(/^[a-z]+\s+/, "").replace(/\s*/g, "").split(",");
+
     // spit out an error if there's the wrong number of parameters
-    // TODO: this
+    if (parameters != paramList.length) {
+      if (op in alt_opcodes) {
+        parameters = numParams(alt_opcodes[op]);
+        if (parameters != paramList.length) {
+          return error("expected " + numParams(op) + " or " + parameters + " parameters for " + op.toUpperCase() + " on line " + lineNumber + ", got " + paramList.length);
+        }
+      } else {
+        return error("expected " + numParams(op) + " parameters for " + op.toUpperCase() + " on line " + lineNumber + ", got " + paramList.length);
+      }
+    }
 
     // now get rn, rs, and rd
     var rn, rs, rd;
@@ -181,17 +191,21 @@ function assemble(input) {
 
   // instructions should now contain all the bytes to be stored
 
-  // print out all instructions for debugging purposes.
-  for (var i = 0; i < instructions.length; i++) {
-    console.log(hexToStr(0x100000 + i*4, 6) + ": " + hexToStr(instructions[i]));
-  }
-  
-  boot(); // reset PC and other things
-
-  // load assembled code into the rom
   if (instructions.length > 0x7fff) {
     return error("only 32 KiB space, this requires " + instructions.length + " bytes");
   }
+
+  // print out the rom
+  var romString = "Little-endian hex ROM:";
+  for (var i = 0; i < instructions.length; i++) {
+    var bytes = padZero(instructions[i].toString(16), 8).match(/../g);
+    romString += " " + bytes[0] + " " + bytes[1] + " " + bytes[2] + " " + bytes[3];
+  }
+  console.log(romString);
+  
+  VM.boot(); // reset PC and other things
+
+  // load assembled code into the rom
   for (var i = 0; i < instructions.length; i++) {
     VM.memory[0x100000 + i*4] = instructions[i];
   }
