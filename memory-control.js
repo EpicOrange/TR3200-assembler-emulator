@@ -40,3 +40,16 @@ function updateMemoryTable(newAddress) {
     value.innerHTML = hexToStr(VM.memory[assignedAddress]);
   }
 }
+function showEditedValue(address, value) {
+  // if the address is displayed in the table, update the table
+  if (address >= currentPos && address < currentPos + (tableSize*4)) {
+    updateMemoryTable();
+    flashBox("memory", (address - currentPos) / 4);
+  }
+  // if the address is a register, update the register table
+  if (address >= 0x11ff00 && address <= 0x11ff40) {
+    var registerName = regNames2[(address - 0x11ff00) / 4];
+    document.getElementById(registerName).innerHTML = hexToStr(value);
+    flashBox("register", registerName);
+  }
+}

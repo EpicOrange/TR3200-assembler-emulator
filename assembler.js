@@ -68,7 +68,8 @@ function assemble(input) {
     // now get rn, rs, and rd
     var rn, rs, rd;
     var rnLimit; // to determine if L bit should be set
-    if (opcode >= 0x93 && opcode <= 0x95) { // 3 parameter load
+    // special cases for some instructions
+    if (opcode >= 0x93 && opcode <= 0x95) { // 3 parameter load: "LOAD Rd, Rs + Rn"
       var temp = paramList[1].split("+");
       if (temp.length == 2) {
         rs = temp[0].trim();
@@ -77,7 +78,7 @@ function assemble(input) {
       } else {
         return error("LOAD parameter syntax error on line " + lineNumber);
       }
-    } else if (opcode >= 0x96 && opcode <= 0x98) { // 3 parameter store
+    } else if (opcode >= 0x96 && opcode <= 0x98) { // 3 parameter store: "STORE Rs + Rn, Rd"
       var temp = paramList[0].split("+");
       if (temp.length == 2) {
         rs = temp[0].trim();
@@ -86,11 +87,11 @@ function assemble(input) {
       } else {
         return error("STORE parameter syntax error on line " + lineNumber);
       }
-    } else if (opcode >= 0x48 && opcode <= 0x4a) { // 2 parameter store
+    } else if (opcode >= 0x48 && opcode <= 0x4a) { // 2 parameter store: "STORE Rn, Rd"
       rd = paramList[1];
       rn = paramList[0];
       rnLimit = 0x3FFFF;
-    } else if (opcode >= 0x53 && opcode <= 0x54) { // 2 parameter jmp / call
+    } else if (opcode == 0x53 || opcode == 0x54) { // 2 parameter jmp or call: "JMP/CALL Rd + Rn"
       var temp = paramList[0].split("+");
       if (temp.length == 2) {
         rn = temp[1].trim();
@@ -98,16 +99,16 @@ function assemble(input) {
       } else {
         return error("JMP/CALL parameter syntax error on line " + lineNumber);
       }
-    } else if (parameters == 3) {
+    } else if (parameters == 3) { // 3 parameters: *instr* Rd, Rs, Rn
       rd = paramList[0];
       rs = paramList[1];
       rn = paramList[2];
       rnLimit = 0x3FFFFF;
-    } else if (parameters == 2) {
+    } else if (parameters == 2) { // 2 parameters: *instr* Rd, Rn
       rd = paramList[0];
       rn = paramList[1];
       rnLimit = 0x3FFFF;
-    } else if (parameters == 1) {
+    } else if (parameters == 1) { // 1 parameter: *instr* Rn
       rn = paramList[0];
       rnLimit = 0x3FFF;
     }
@@ -155,20 +156,20 @@ function assemble(input) {
     instruction = opcode << 24; // opcode: 0x ff 00 00 00
     switch (parameters) {
     case 3:
-      instruction = instruction | (rs << 14); // rs: 0x 00 03 c0 00 
+      instruction |= (rs << 14); // rs: 0x 00 03 c0 00 
     case 2:
-      instruction = instruction | (rd << 18); // rd: 0x 03 c0 00 00 
+      instruction |= (rd << 18); // rd: 0x 03 c0 00 00 
     case 1:
       if (rn < rnLimit) {
-        instruction = instruction | rn; // rn: depends on # of params
+        instruction |= rn; // rn: depends on # of params
       } else if (rn < 0xffffffff) {
         l = true;
       } else {
         return error("Value > 0xffffffff " + rn + " on line " + lineNumber);
       }
     default:
-      instruction = instruction | (m << 23); // m bit: 0x 00 80 00 00
-      instruction = instruction | (l << 22); // l bit: 0x 00 40 00 00
+      instruction |= (m << 23); // m bit: 0x 00 80 00 00
+      instruction |= (l << 22); // l bit: 0x 00 40 00 00
     }
 
     // finally, push the values into the array
@@ -188,8 +189,9 @@ function assemble(input) {
   boot(); // reset PC and other things
 
   // load assembled code into the rom
-  if (instructions.length > 0x7fff)
+  if (instructions.length > 0x7fff) {
     return error("only 32 KiB space, this requires " + instructions.length + " bytes");
+  }
   for (var i = 0; i < instructions.length; i++) {
     VM.memory[0x100000 + i*4] = instructions[i];
   }

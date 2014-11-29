@@ -23,7 +23,7 @@ function init() {
   document.getElementById("assemble").addEventListener('click', function() {assemble(input.value);}, false);
   document.getElementById("undo").addEventListener('click', undo, false);
   document.getElementById("reset").addEventListener('click', boot, false);
-  document.getElementById("run").addEventListener('click', toggle, false);
+  document.getElementById("run").addEventListener('click', function() {if (!VM.running) VM.run(); else VM.pause();}, false);
   document.getElementById("step").addEventListener('click', step, false);
   document.getElementById("memoryTop").addEventListener("click", function() {updateMemoryTable(currentPos - 4);}, false);
   document.getElementById("memoryBottom").addEventListener("click", function() {updateMemoryTable(currentPos + 4);}, false);

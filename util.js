@@ -13,7 +13,7 @@ function error(note) {
   document.getElementById("errorDisplay").innerHTML = note;
   document.getElementById("errorDisplay").style.display = "inline-block";
   document.getElementById("errorOK").style.display = "inline-block";
-  return note;
+  VM.pause();
 }
 function clearError() {
   document.getElementById("errorDisplay").style.display = "none";
@@ -54,9 +54,9 @@ function uint(number) { // todo: check if number is a number. or maybe don't
 function reverseEndianness(dword) {
   dword = uint(dword);
   var reversed = (dword & 0xff000000) >>> 24;
-  reversed = reversed | (dword & 0xff0000) >>> 8;
-  reversed = reversed | (dword & 0xff00) << 8;
-  reversed = reversed | (dword & 0xff) << 24;
+  reversed |= (dword & 0xff0000) >>> 8;
+  reversed |= (dword & 0xff00) << 8;
+  reversed |= (dword & 0xff) << 24;
   return reversed;
 }
 
@@ -68,9 +68,8 @@ function undo() {
 }
 
 function flashBox(type, index) {
-  if (booting) return;
   var element;
-  var t = (running ? 100 : 1000);
+  var t = (VM.running ? 100 : 1000);
   switch (type) {
   case "register":
     if (typeof index == "number")
@@ -254,3 +253,11 @@ var regNames2 = {
   14: "%ia",
   15: "%flags"
 };
+var flagNames = {
+  "cf": 0, // carry flag
+  "of": 1, // overflow flag
+  "de": 2, // division error
+  "if": 3, // interrupt flag
+  "ei": 8, // enable interrupts
+  "es": 9 // single-step-mode
+}
