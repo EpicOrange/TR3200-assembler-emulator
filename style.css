@@ -22,6 +22,7 @@ page looks roughly like this
 
 */
 
+/* DEFAULTS */
 * {
   color: #8f8;
   font-family: "Trebuchet MS";
@@ -58,69 +59,7 @@ textarea, select, input {
   padding: 0 2px;
 }
 
-input[type="button"] {
-  margin: 2px;
-}
-input[type="button"]:focus {
-  outline: 0;
-}
-input[type="button"]:active {
-  border-style: inset;
-}
-
-div#input-area, div#center-area, div#memory-container {
-  display: inline-block;
-  margin: 2px;
-  vertical-align: top;
-}
-
-div#input-area {
-  width: 32em;
-  top: 0px;
-  left: 0px;
-  height: calc(100% - 4px);
-  float: left;
-}
-
-textarea#input {
-  width: 100%;
-  height: 100%;
-  font-family: "Courier New";
-  font-size: 16px;
-  overflow: hidden;
-  resize: none;
-}
-
-div#center-area {
-  left: calc(32em + 4px);
-  float: left;
-}
-
-div#rom-controls {
-  text-align: left;
-}
-
-
-
-table#registerView {
-  width: 300px;
-}
-div#memory-container {
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: calc(100% - 4px);
-}
-table#memoryView {
-  width: 200px;
-  table-layout: fixed;
-}
-
-div#errorDisplay {
-  color: #F17B35;
-  font-size: 12px;
-}
-
+/* TABLE */
 table {
   border-collapse: collapse;
   margin: 0;
@@ -150,8 +89,83 @@ td:nth-child(even), th:nth-child(even), th#currentInstructionText, table#memoryV
   color: #fff;
 }
 
+input[type="button"] {
+  margin: 2px;
+}
+input[type="button"]:focus {
+  outline: 0;
+}
+input[type="button"]:active {
+  border-style: inset;
+}
+
+/* LEFT (INPUT) */
+div#input-area, div#center-area, div#memory-container {
+  display: inline-block;
+  margin: 2px;
+  vertical-align: top;
+}
+
+div#input-area {
+  width: 32em;
+  top: 0px;
+  left: 0px;
+  height: calc(100% - 4px);
+  float: left;
+}
+
+textarea#input {
+  width: 100%;
+  height: 100%;
+  font-family: "Courier New";
+  font-size: 16px;
+  overflow: hidden;
+  resize: none;
+}
+
+/* CENTER (rom controls, register view, error) */
+div#center-area {
+  position: relative;
+  height: calc(100% - 4px);
+  float: left;
+}
+div#center-area, table#registerView {
+  width: 300px;
+}
+
+div#rom-controls {
+  text-align: left;
+}
+
+div#register-container {
+  position: absolute;
+  bottom: 0;
+}
+
+div#errorDisplay {
+  color: #F17B35;
+  background-color: #333;
+  font-size: 12px;
+  transition: opacity 1s ease; 
+}
+
+/* RIGHT (MEMORY) */
+div#memory-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: calc(100% - 4px);
+}
+
+table#memoryView {
+  width: 200px;
+  table-layout: fixed;
+}
+
+/*
 canvas {
   border: 1px solid #000;
   background-color: #000;
   color: #fff;
 }
+*/

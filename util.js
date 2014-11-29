@@ -11,11 +11,11 @@ function padZero(txt, num) {
 function error(note) {
   console.log("ERROR: " + note);
   document.getElementById("errorDisplay").innerHTML = note;
-  document.getElementById("errorDisplay").style.display = "inline-block";
+  document.getElementById("errorDisplay").style.opacity = 1;
   VM.pause();
 }
 function clearError() {
-  document.getElementById("errorDisplay").style.display = "none";
+  document.getElementById("errorDisplay").style.opacity = 0;
 }
 function warning(note) {
   console.log("WARNING: " + note);

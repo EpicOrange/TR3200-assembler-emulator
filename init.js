@@ -75,7 +75,6 @@ function init() {
 
   var resizeFunction = function() {
     var newTableSize = Math.floor((window.innerHeight - 52) / 24);
-    console.log(newTableSize);
     if (tableSize != newTableSize) {
       tableSize = newTableSize;
       updateMemoryTable();
