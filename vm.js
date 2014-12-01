@@ -35,29 +35,17 @@ Important addresses:
 */
 
 /* ANOTHER TODO LIST
-  
-  make memory table resize correctly: see resizeFunction in init() and see memorycontrol.js
-
-  commit message: "UI overhaul, also fixed some bugs and made assembler check number of params"
-
-
-
 
   rewrite execute
     attach cycle counts
     look over each instruction to see if changed
     make em all work as well cause some don't
 
-  parser.js rewrite
-
   sanitize step() for invalid instructions (such as those made from parser)
 
   specifications say the vm has four internal devices: 
       https://github.com/trillek-team/trillek-computer#pit-programmable-interval-timer
 
-  ui changes:
-    add line numbers to input
-    no need to use zoom
 */
 
 var VM = new function() {

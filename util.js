@@ -51,7 +51,7 @@ function reverseEndianness(dword) {
   reversed |= (dword & 0xff0000) >>> 8;
   reversed |= (dword & 0xff00) << 8;
   reversed |= (dword & 0xff) << 24;
-  return reversed;
+  return uint(reversed);
 }
 
 var undoStorage = "";
@@ -59,6 +59,32 @@ function undo() {
   var temp = document.getElementById("input").value;
   document.getElementById("input").value = undoStorage;
   undoStorage = temp;
+}
+
+function loadRom(instructions) { // instructions is an array with all the dwords
+  if (instructions.length > 0x7fff) {
+    return error("only 32 KiB space, this requires " + instructions.length + " bytes");
+  }
+
+  // print out the rom
+  var romString = "Little-endian hex ROM:";
+  for (var i = 0; i < instructions.length; i++) {
+    var bytes = padZero(instructions[i].toString(16), 8).match(/../g);
+    romString += " " + bytes[0] + " " + bytes[1] + " " + bytes[2] + " " + bytes[3];
+  }
+  console.log(romString);
+  
+  VM.boot(); // reset PC and other things
+
+  // load assembled code into the rom
+  for (var i = 0; i < instructions.length; i++) {
+    VM.memory[0x100000 + i*4] = instructions[i];
+  }
+  // put a sleep instruction at the end
+  VM.memory[0x100000 + instructions.length*4] = 0x00000000;
+
+  undoStorage = input; // no errors found in assembling, store input in undo
+  clearError(); // clear error without user having to press OK
 }
 
 function flashBox(type, index) {

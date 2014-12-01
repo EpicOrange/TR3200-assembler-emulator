@@ -42,7 +42,7 @@ Examples : - RET -> 0x01000000
 
 
 function assemble(input) {
-  var lines = input.trim().replace(/;.+\n/, "\n").split("\n"); // remove comments and separate lines into an array
+  var lines = input.replace(/;.*\n/g, "\n").trim().split("\n"); // remove comments and separate lines into an array
   var instructions = []; // bytes to store in rom
   // parse lines one by one
   for (var lineNumber = 1; lineNumber <= lines.length; lineNumber++) {
@@ -189,29 +189,5 @@ function assemble(input) {
     }
   }
 
-  // instructions should now contain all the bytes to be stored
-
-  if (instructions.length > 0x7fff) {
-    return error("only 32 KiB space, this requires " + instructions.length + " bytes");
-  }
-
-  // print out the rom
-  var romString = "Little-endian hex ROM:";
-  for (var i = 0; i < instructions.length; i++) {
-    var bytes = padZero(instructions[i].toString(16), 8).match(/../g);
-    romString += " " + bytes[0] + " " + bytes[1] + " " + bytes[2] + " " + bytes[3];
-  }
-  console.log(romString);
-  
-  VM.boot(); // reset PC and other things
-
-  // load assembled code into the rom
-  for (var i = 0; i < instructions.length; i++) {
-    VM.memory[0x100000 + i*4] = instructions[i];
-  }
-  // put a sleep instruction at the end
-  VM.memory[0x100000 + instructions.length*4] = 0x00000000;
-
-  undoStorage = input; // no errors found in assembling, store input in undo
-  clearError(); // clear error without user having to press OK
+  loadRom(instructions);
 }
